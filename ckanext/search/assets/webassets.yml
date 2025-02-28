@@ -1,0 +1,14 @@
+# search-js:
+#   filter: rjsmin
+#   output: ckanext-search/%(version)s-search.js
+#   contents:
+#     - js/search.js
+#   extra:
+#     preload:
+#       - base/main
+
+# search-css:
+#   filter: cssrewrite
+#   output: ckanext-search/%(version)s-search.css
+#   contents:
+#     - css/search.css
