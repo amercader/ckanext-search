@@ -1,17 +1,17 @@
 import hashlib
-import logging
 import json
+import logging
 import socket
 from typing import Any, Dict, Optional
 
-import requests
 import pysolr
-from ckanext.search.interfaces import ISearchProvider, SearchResults, SearchSchema
-
+import requests
 from ckan.lib.navl.dictization_functions import MissingNullEncoder
 from ckan.plugins import SingletonPlugin, implements
 from ckan.plugins.toolkit import config
 
+from ckanext.search.interfaces import (ISearchProvider, SearchResults,
+                                       SearchSchema)
 
 log = logging.getLogger(__name__)
 
@@ -100,6 +100,8 @@ class SolrSearchProvider(SingletonPlugin):
         self, search_schema: SearchSchema, clear: bool
     ) -> None:
 
+        # TODO: Should be create the ckan core here?
+
         # TODO: how to handle udpates to the schema:
         #   - Replace fields if a field already exists
         #   - Delete fields no longer in the schema
@@ -118,6 +120,14 @@ class SolrSearchProvider(SingletonPlugin):
 
         # TODO: Create dynamic fields? eg. *_date, *_list, etc
 
+        solr_field_types = {
+            # TODO: lang
+            "text": "text_en",
+            "bool": "boolean",
+            # TODO: check
+            "date": "pdate",
+        }
+
         for field in search_schema["fields"]:
 
             field_name = field.pop("name")
@@ -127,18 +137,11 @@ class SolrSearchProvider(SingletonPlugin):
                 log.info(
                     f"Field '{field_name}' exists and clear not provided, skipping"
                 )
+                continue
 
             # Translate common search schema format to Solr format
 
-            solr_field_types = {
-                # TODO: lang
-                "text": "text_en",
-                "bool": "boolean",
-                # TODO: check
-                "date": "pdate",
-            }
             if field_type in solr_field_types:
-
                 field_type = solr_field_types[field_type]
 
             field["multiValued"] = field.pop("multiple", False)

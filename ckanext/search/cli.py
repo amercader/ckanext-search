@@ -1,5 +1,7 @@
 import click
-from ckanext.search.index import rebuild_dataset_index, rebuild_organization_index
+
+from ckanext.search.index import (rebuild_dataset_index,
+                                  rebuild_organization_index)
 from ckanext.search.schema import init_schema
 
 

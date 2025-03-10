@@ -1,5 +1,5 @@
-from ckanext.search.interfaces import SearchSchema
 from ckanext.search.index import _get_indexing_plugins
+from ckanext.search.interfaces import SearchSchema
 
 DEFAULT_DATASET_SEARCH_SCHEMA: SearchSchema = {
     "version": 1,

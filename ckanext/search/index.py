@@ -1,11 +1,11 @@
 from collections.abc import Iterator
 
-from ckanext.search.interfaces import ISearchProvider
-from sqlalchemy.sql.expression import true
-
 from ckan import model
 from ckan.plugins import PluginImplementations, SingletonPlugin
 from ckan.plugins.toolkit import aslist, config, get_action
+from sqlalchemy.sql.expression import true
+
+from ckanext.search.interfaces import ISearchProvider
 
 
 def _get_indexing_providers() -> list:
@@ -18,7 +18,8 @@ def _get_indexing_providers() -> list:
 
 def _get_indexing_plugins() -> Iterator[SingletonPlugin]:
     for plugin in PluginImplementations(ISearchProvider):
-        yield plugin
+        if plugin.id in _get_indexing_providers():
+            yield plugin
 
 
 def index_dataset(id_: str) -> None:
