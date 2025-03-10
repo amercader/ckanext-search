@@ -1,8 +1,8 @@
 # This will eventually live in ckan/logic/action/get.py
+from ckanext.search.interfaces import ISearchProvider
+
 from ckan.plugins import PluginImplementations
 from ckan.plugins.toolkit import aslist, config, get_action, side_effect_free
-
-from ckanext.search.interfaces import ISearchProvider
 
 
 @side_effect_free

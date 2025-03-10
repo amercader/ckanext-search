@@ -1,7 +1,7 @@
+from ckanext.search import actions, cli
+
 import ckan.plugins as plugins
 import ckan.plugins.toolkit as toolkit
-
-from ckanext.search import actions, cli
 
 # TODO: All this whole plugin will eventually live in CKAN core
 

@@ -55,10 +55,12 @@ Config options (may change):
 - [x] Minimal indexing for datasets
 - [x] Minimal querying for datasets
 - [ ] Support additional entity types (orgs, users, etc)
+- [ ] General text search across all fields
 - [ ] Initialize search provider: combined search schema
 - [ ] Initialize: setup Solr
 - [ ] Initialize: setup ES
 - [ ] Choose what to index
+- [ ] Language (stemming, etc)
 - [ ] `search` API params, validation
 - [ ] `search` API output
 - [ ] Return data_dicts vs ids or fl
@@ -70,6 +72,12 @@ Config options (may change):
 - [ ] `ISearchFeature` implementation
 - [ ] Custom entities
 - [ ] ...
+
+Out of scope for now:
+
+* Replacing current `package_search` usage in core
+* Refactor `package_search` to use the new search implementation
+
 
 
 ## License

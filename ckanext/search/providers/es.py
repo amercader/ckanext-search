@@ -2,12 +2,12 @@ import hashlib
 import json
 from typing import Any, Optional
 
+from ckanext.search.interfaces import ISearchProvider, SearchResults
+
 from ckan.lib.navl.dictization_functions import MissingNullEncoder
 from ckan.plugins import SingletonPlugin, implements
 from ckan.plugins.toolkit import config
 from elasticsearch import Elasticsearch
-
-from ckanext.search.interfaces import ISearchProvider, SearchResults
 
 
 class ElasticSearchProvider(SingletonPlugin):
