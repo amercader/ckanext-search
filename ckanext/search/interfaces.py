@@ -6,8 +6,8 @@ from ckan.plugins.interfaces import Interface
 
 class SearchSchema(TypedDict, total=False):
     """Type definition for search schema"""
-
-    field_name: dict[str, Any]  # field properties like type, repeating, etc.
+    version: int
+    fields: list[dict[str, Any]]  # field properties like type, repeating, etc.
 
 
 class SearchResults(TypedDict, total=False):
@@ -41,6 +41,7 @@ class ISearchProvider(Interface):
         """generate search results or return None if another provider
         should be used for the query"""
 
+    # TODO: what is clear used for?
     def initialize_search_provider(
         self, combined_schema: SearchSchema, clear: bool
     ) -> None:
@@ -59,6 +60,7 @@ class ISearchProvider(Interface):
 class ISearchFeature:
     def entity_types(self) -> list[str]:
         "return list of entity types covered by this feature"
+        pass
 
     def search_schema(self) -> SearchSchema:
         """return index fields names, their types (text, str, date, numeric)
