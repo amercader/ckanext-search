@@ -8,6 +8,7 @@ jobs:
       # the one of the container the tests run on.
       # You can switch this base image with a custom image tailored to your project
       image: ckan/ckan-dev:master
+      options: --user root
     services:
       solr:
         image: ckan/ckan-solr:master-solr9
