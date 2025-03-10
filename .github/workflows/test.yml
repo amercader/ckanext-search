@@ -7,19 +7,19 @@ jobs:
       # The CKAN version tag of the Solr and Postgres containers should match
       # the one of the container the tests run on.
       # You can switch this base image with a custom image tailored to your project
-      image: ckan/ckan-dev:2.12
+      image: ckan/ckan-dev:master
     services:
       solr:
-        image: ckan/ckan-solr:2.12-solr9
+        image: ckan/ckan-solr:master-solr9
       postgres:
-        image: ckan/ckan-postgres-dev:2.12
+        image: ckan/ckan-postgres-dev:master
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: postgres
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
       redis:
-          image: redis:3
+          image: redis:7
 
     env:
       CKAN_SQLALCHEMY_URL: postgresql://ckan_default:pass@postgres/ckan_test
