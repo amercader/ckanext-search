@@ -6,12 +6,9 @@ from typing import Any, Dict, Optional
 
 import pysolr
 import requests
-from ckan.lib.navl.dictization_functions import MissingNullEncoder
 from ckan.plugins import SingletonPlugin, implements
 from ckan.plugins.toolkit import config
-
-from ckanext.search.interfaces import (ISearchProvider, SearchResults,
-                                       SearchSchema)
+from ckanext.search.interfaces import ISearchProvider, SearchResults, SearchSchema
 
 log = logging.getLogger(__name__)
 
@@ -169,8 +166,6 @@ class SolrSearchProvider(SingletonPlugin):
 
         client = self.get_client()
 
-        validated_data_dict = json.dumps(search_data, cls=MissingNullEncoder)
-
         # TODO: looks like we can set uniqueKey via the API so index_id can not be
         # used by solr by default. It uses "id". This is probably fine™ if using UUID
         # (barring uuid clashes) for single sites but it might cause issues if users
@@ -179,13 +174,6 @@ class SolrSearchProvider(SingletonPlugin):
         search_data["index_id"] = hashlib.md5(
             b"%s%s" % (id_.encode(), config["ckan.site_id"].encode())
         ).hexdigest()
-
-        # TODO: choose what to commit
-        search_data.pop("organization", None)
-        search_data.pop("users", None)
-
-        # TODO: handle this at the provider or core level?
-        search_data["validated_data_dict"] = validated_data_dict
 
         try:
             # TODO: commit
@@ -223,7 +211,24 @@ class SolrSearchProvider(SingletonPlugin):
         solr_params = {
             "q": query,
             "df": df,
+            "fq": [],
         }
+
+        # TODO: perm labels for arbitrary entities
+        if "permission_labels" in filters:
+            perms_conditions = (
+                "permission_labels:("
+                + " OR ".join(solr_literal(p) for p in filters["permission_labels"])
+                + ")"
+            )
+
+            perms_fq = (
+                "(entity_type:dataset AND {}) OR (*:* NOT entity_type:dataset)".format(
+                    perms_conditions
+                )
+            )
+
+            solr_params["fq"].append(perms_fq)
 
         client = self.get_client()
 
@@ -265,3 +270,14 @@ class SolrSearchProvider(SingletonPlugin):
         self._admin_client = SolrSchema(config["ckan.search.solr.url"])
 
         return self._admin_client
+
+
+# TODO: review
+def solr_literal(t: str) -> str:
+    """
+    return a safe literal string for a solr query. Instead of escaping
+    each of + - && || ! ( ) { } [ ] ^ " ~ * ? : \\ / we're just dropping
+    double quotes -- this method currently only used by tokens like site_id
+    and permission labels.
+    """
+    return '"' + t.replace('"', "") + '"'

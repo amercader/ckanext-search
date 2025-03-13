@@ -1,4 +1,7 @@
 # This will eventually live in ckan/logic/action/get.py
+
+import ckan.authz as authz
+from ckan.lib.plugins import get_permission_labels
 from ckan.plugins import PluginImplementations
 from ckan.plugins.toolkit import aslist, config, get_action, side_effect_free
 
@@ -9,6 +12,7 @@ from ckanext.search.interfaces import ISearchProvider
 def search(context, data_dict):
 
     # TODO: Check auth
+    user = context.get("user")
 
     # TODO:
 
@@ -23,11 +27,22 @@ def search(context, data_dict):
 
     query_dict = {
         "query": data_dict.get("q"),
-        "filters": [],
+        "filters": {},
         "sort": "",
         "additional_params": {},
         "lang": "",
     }
+
+    # enforce permission filter based on user
+    if context.get("ignore_auth") or (user and authz.is_sysadmin(user)):
+        labels = None
+    else:
+        labels = get_permission_labels().get_user_dataset_labels(
+            context["auth_user_obj"]
+        )
+
+    if labels:
+        query_dict["filters"]["permission_labels"] = labels
 
     search_backend = config["ckan.search.search_backend"]
     result = {}

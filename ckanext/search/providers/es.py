@@ -3,7 +3,6 @@ import json
 import logging
 from typing import Any, Optional
 
-from ckan.lib.navl.dictization_functions import MissingNullEncoder
 from ckan.plugins import SingletonPlugin, implements
 from ckan.plugins.toolkit import config
 from elasticsearch import Elasticsearch
@@ -73,7 +72,6 @@ class ElasticSearchProvider(SingletonPlugin):
 
         client = self.get_client()
 
-        validated_data_dict = json.dumps(search_data, cls=MissingNullEncoder)
 
         index_id = hashlib.md5(
             b"%s%s" % (id_.encode(), config["ckan.site_id"].encode())
@@ -81,9 +79,6 @@ class ElasticSearchProvider(SingletonPlugin):
 
         # TODO: choose what to commit
         search_data.pop("organization", None)
-
-        # TODO: handle this at the provider or core level?
-        search_data["validated_data_dict"] = validated_data_dict
 
         client.index(
             index="ckan",
