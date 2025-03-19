@@ -247,6 +247,17 @@ class SolrSearchProvider(SingletonPlugin):
 
         return {"count": len(items), "results": items, "facets": {}}
 
+    def clear_index(self) -> None:
+
+        client = self.get_client()
+        try:
+            client.delete(q="*:*")
+            log.info("Cleared all documents in the search index")
+
+        except pysolr.SolrError as e:
+            # TODO:
+            raise e
+
     # Backend methods
 
     def get_client(self) -> pysolr.Solr:

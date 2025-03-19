@@ -56,6 +56,10 @@ class ISearchProvider(Interface):
     def delete_search_record(self, entity_type: str, id_: str) -> None:
         "remove record from index"
 
+    # TODO: clear just one entity type
+    def clear_index(self) -> None:
+        """Clear all documents from the index"""
+
 
 class ISearchFeature:
     def entity_types(self) -> list[str]:

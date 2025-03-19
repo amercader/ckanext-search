@@ -1,7 +1,10 @@
 import click
 
-from ckanext.search.index import (rebuild_dataset_index,
-                                  rebuild_organization_index)
+from ckanext.search.index import (
+    rebuild_dataset_index,
+    rebuild_organization_index,
+    clear_index,
+)
 from ckanext.search.schema import init_schema
 
 
@@ -23,6 +26,14 @@ def rebuild(entity_type: str):
 
         rebuild_organization_index()
         rebuild_dataset_index()
+
+
+@search.command()
+@click.option("-f", "--force", default=False, help="Don't prompt for confirmation")
+def clear(force):
+    msg = "This will delete all entries in the search index. Do you want to proceed?"
+    if force or click.confirm(msg, abort=True):
+        clear_index()
 
 
 @search.command()

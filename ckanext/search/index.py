@@ -107,3 +107,9 @@ def rebuild_organization_index() -> None:
 
     for id_ in org_ids:
         index_organization(id_)
+
+
+def clear_index():
+    for plugin in PluginImplementations(ISearchProvider):
+        if plugin.id in _get_indexing_providers():
+            plugin.clear_index()

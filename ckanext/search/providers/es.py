@@ -117,6 +117,14 @@ class ElasticSearchProvider(SingletonPlugin):
 
         return {"count": len(items), "results": items, "facets": {}}
 
+    def clear_index(self) -> None:
+
+        client = self.get_client()
+        # TODO: review bulk, versions, slices, etc
+        client.delete_by_query(q="*:*", index="ckan")
+        log.info("Cleared all documents in the search index")
+
+
     # Provider methods
 
     def get_client(self) -> Elasticsearch:
