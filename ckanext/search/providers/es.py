@@ -7,8 +7,7 @@ from ckan.plugins import SingletonPlugin, implements
 from ckan.plugins.toolkit import config
 from elasticsearch import Elasticsearch
 
-from ckanext.search.interfaces import (ISearchProvider, SearchResults,
-                                       SearchSchema)
+from ckanext.search.interfaces import ISearchProvider, SearchResults, SearchSchema
 
 log = logging.getLogger(__name__)
 
@@ -21,6 +20,15 @@ class ElasticSearchProvider(SingletonPlugin):
 
     _client = None
 
+    _index_name = ""
+
+    def __init__(self, *args: Any, **kwargs: Any):
+
+        super().__init__(*args, **kwargs)
+
+        # TODO: config declaration
+        self._index_name = config.get("ckan.search.elasticsearch.index_name", "ckan")
+
     # ISearchProvider
 
     def initialize_search_provider(
@@ -28,15 +36,14 @@ class ElasticSearchProvider(SingletonPlugin):
     ) -> None:
 
         client = self.get_client()
-
         # Check if index exists, create otherwise
-        if not client.indices.exists(index="ckan"):
+        if not client.indices.exists(index=self._index_name):
 
             # TODO: what else do we need?
-            params = {"index": "ckan", "mappings": {"dynamic": "false"}}
+            params = {"index": self._index_name, "mappings": {"dynamic": "false"}}
 
             client.indices.create(**params)
-            log.info("Created new index 'ckan'")
+            log.info("Created new index '%s'" % self._index_name)
 
         # Translate common search schema format to ES format
         es_field_types = {
@@ -63,7 +70,7 @@ class ElasticSearchProvider(SingletonPlugin):
                 f"Added field '{field_name}' to index, with type {field_type} and params {field}"
             )
 
-        client.indices.put_mapping(index="ckan", body=mapping)
+        client.indices.put_mapping(index=self._index_name, body=mapping)
         log.info("Updated index with mapping")
 
     def index_search_record(
@@ -71,7 +78,6 @@ class ElasticSearchProvider(SingletonPlugin):
     ) -> None:
 
         client = self.get_client()
-
 
         index_id = hashlib.md5(
             b"%s%s" % (id_.encode(), config["ckan.site_id"].encode())
@@ -81,7 +87,7 @@ class ElasticSearchProvider(SingletonPlugin):
         search_data.pop("organization", None)
 
         client.index(
-            index="ckan",
+            index=self._index_name,
             id=index_id,
             document=search_data,
         )
@@ -121,9 +127,8 @@ class ElasticSearchProvider(SingletonPlugin):
 
         client = self.get_client()
         # TODO: review bulk, versions, slices, etc
-        client.delete_by_query(q="*:*", index="ckan")
+        client.delete_by_query(q="*:*", index=self._index_name)
         log.info("Cleared all documents in the search index")
-
 
     # Provider methods
 
