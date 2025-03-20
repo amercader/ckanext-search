@@ -79,9 +79,7 @@ class ElasticSearchProvider(SingletonPlugin):
 
         client = self.get_client()
 
-        index_id = hashlib.md5(
-            b"%s%s" % (id_.encode(), config["ckan.site_id"].encode())
-        ).hexdigest()
+        index_id = id_
 
         # TODO: choose what to commit
         search_data.pop("organization", None)
