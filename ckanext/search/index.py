@@ -1,14 +1,14 @@
-from collections.abc import Iterator
 import json
+from collections.abc import Iterator
 
 from ckan import model
 from ckan.lib.navl.dictization_functions import MissingNullEncoder
 from ckan.lib.plugins import get_permission_labels
 from ckan.plugins import PluginImplementations, SingletonPlugin
 from ckan.plugins.toolkit import aslist, config, get_action
-from sqlalchemy.sql.expression import true
-
+from ckan.types import ActionResult
 from ckanext.search.interfaces import ISearchProvider
+from sqlalchemy.sql.expression import true
 
 
 def _get_indexing_providers() -> list:
@@ -32,10 +32,15 @@ def index_dataset(id_: str) -> None:
         "for_indexing": True,  # TODO: implement support in core
         "validate": False,
     }
-    data_dict = get_action("package_show")(context, {"id": id_})
+    dataset_dict = get_action("package_show")(context, {"id": id_})
+
+    return index_dataset_dict(dataset_dict)
+
+
+def index_dataset_dict(dataset_dict: ActionResult.PackageShow) -> None:
 
     # TODO: choose what to index here?
-    search_data = dict(data_dict)
+    search_data = dict(dataset_dict)
     search_data.pop("organization", None)
 
     # TODO: handle resource fields
@@ -49,6 +54,7 @@ def index_dataset(id_: str) -> None:
 
     # permission labels determine visibility in search, can't be set
     # in original dataset or before_dataset_index plugins
+    id_ = dataset_dict["id"]
     labels = get_permission_labels()
     search_data["permission_labels"] = labels.get_dataset_labels(model.Package.get(id_))
 
@@ -64,10 +70,15 @@ def index_organization(id_: str) -> None:
         "for_indexing": True,  # TODO: implement support in core
         "validate": False,
     }
-    data_dict = get_action("organization_show")(context, {"id": id_})
+    org_dict = get_action("organization_show")(context, {"id": id_})
+
+    return index_organization_dict(org_dict)
+
+
+def index_organization_dict(org_dict: ActionResult.OrganizationShow) -> None:
 
     # TODO: choose what to index here?
-    search_data = dict(data_dict)
+    search_data = dict(org_dict)
     search_data.pop("users", None)
 
     search_data["entity_type"] = "organization"
