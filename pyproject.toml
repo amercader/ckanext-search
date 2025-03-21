@@ -10,13 +10,19 @@ license = {text = "AGPL"}
 classifiers = [
     "Development Status :: 4 - Beta",
     "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
 
 keywords = [ "CKAN", ]
 dependencies = []
+
+# TODO: move this to their own extensions
+[project.optional-dependencies]
+solr = ["pysolr"]
+elasticsearch = ["elasticsearch"]
+
 
 [project.urls]
 Homepage = "https://github.com//ckanext-search"
