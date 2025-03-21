@@ -134,24 +134,23 @@ class SolrSearchProvider(SingletonPlugin):
                 log.info(
                     f"Field '{field_name}' exists and clear not provided, skipping"
                 )
-                continue
-
-            # Translate common search schema format to Solr format
-
-            if field_type in solr_field_types:
-                field_type = solr_field_types[field_type]
-
-            field["multiValued"] = field.pop("multiple", False)
-
-            resp = admin_client.add_field(field_name, field_type, **field)
-            if "error" in resp:
-                log.warning(
-                    f'Error creating field "{field_name}": {resp["error"]["details"][0]["errorMessages"]}'
-                )
             else:
-                log.info(
-                    f"Added field '{field_name}' to index, with type {field_type} and params {field}"
-                )
+                # Translate common search schema format to Solr format
+
+                if field_type in solr_field_types:
+                    field_type = solr_field_types[field_type]
+
+                field["multiValued"] = field.pop("multiple", False)
+
+                resp = admin_client.add_field(field_name, field_type, **field)
+                if "error" in resp:
+                    log.warning(
+                        f'Error creating field "{field_name}": {resp["error"]["details"][0]["errorMessages"]}'
+                    )
+                else:
+                    log.info(
+                        f"Added field '{field_name}' to index, with type {field_type} and params {field}"
+                    )
 
             # Copy text values to catch-all field
             if field_type.startswith("text"):
