@@ -76,6 +76,7 @@ class ElasticSearchProvider(SingletonPlugin):
     def index_search_record(
         self, entity_type: str, id_: str, search_data: dict[str, str | list[str]]
     ) -> None:
+        # TODO: provider specific params
 
         client = self.get_client()
 
@@ -83,11 +84,12 @@ class ElasticSearchProvider(SingletonPlugin):
 
         # TODO: choose what to commit
         search_data.pop("organization", None)
-
+        # TODO: refresh
         client.index(
             index=self._index_name,
             id=index_id,
             document=search_data,
+            refresh="true"
         )
 
     def search_query(
@@ -125,7 +127,10 @@ class ElasticSearchProvider(SingletonPlugin):
 
         client = self.get_client()
         # TODO: review bulk, versions, slices, etc
-        client.delete_by_query(q="*:*", index=self._index_name)
+        # TODO: wait for completion
+        client.delete_by_query(
+            q="*:*", index=self._index_name, wait_for_completion=True
+        )
         log.info("Cleared all documents in the search index")
 
     # Provider methods
