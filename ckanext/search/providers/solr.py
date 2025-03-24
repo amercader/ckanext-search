@@ -3,6 +3,7 @@ import json
 import logging
 import socket
 from typing import Any, Dict, Optional
+from urllib.parse import urlparse, urlunparse
 
 import pysolr
 import requests
@@ -16,30 +17,92 @@ log = logging.getLogger(__name__)
 class SolrSchema:
 
     solr_url: str = ""
-    schema_url: str = ""
-    luke_url: str = ""
+    core_url: str = ""
+    schema_admin_url: str = ""
+    cores_url: str = ""
 
-    def __init__(self, solr_url: str) -> None:
+    def __init__(self, solr_url: str, core_name: str | None = None) -> None:
 
         # TODO: check URL, auth
         solr_url = solr_url.rstrip("/")
         self.solr_url = solr_url
-        self.schema_url = f"{self.solr_url}/schema"
+
+        parts = urlparse(self.solr_url)
+        solr_root_url = urlunparse(
+            (parts.scheme, parts.netloc, "solr", None, None, None)
+        )
+
+        path_parts = [p for p in parts.path.split("/") if p]
+        if not core_name:
+            if len(path_parts) > 1:
+                self.core_name = path_parts[1]
+                self.core_url = f"{self.solr_url}"
+            else:
+                raise ValueError(
+                    "Root Solr URL provided and no core_name param provided"
+                )
+        else:
+            self.core_name = core_name
+            if len(path_parts) > 1:
+                if path_parts[1] != core_name:
+                    raise ValueError(
+                        "Inconsistent core names provided in URL and core_name param"
+                    )
+                self.core_name = core_name
+                self.core_url = f"{self.solr_url}"
+            else:
+                self.core_url = f"{self.solr_url}/{core_name}"
+
+        self.schema_admin_url = f"{self.core_url}/schema"
+        self.cores_admin_url = f"{solr_root_url}/admin/cores"
 
     def _request(self, command: str, params: Dict[str, Any]) -> Dict[str, Any]:
 
         data = {command: params}
         # TODO: auth
         resp = requests.post(
-            self.schema_url,
+            self.schema_admin_url,
             json=data,
         )
 
         return resp.json()
 
+    def get_core(self, core_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """
+        Get core details. Returns None if the core does not exist.
+        """
+        if not core_name:
+            core_name = self.core_name
+
+        params = {"action": "STATUS", "core": core_name}
+
+        # TODO: auth, error handling
+        data = requests.get(self.cores_admin_url, params=params).json()
+
+        status = data.get("status", {})
+
+        if core_name not in status:
+            return None
+
+        return status[core_name]
+
+    def create_core(self, core_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """
+        Create a core in Solr.
+        """
+        if not core_name:
+            core_name = self.core_name
+
+        params = {
+            "action": "CREATE", "name": core_name, "configSet": "_default"}
+        # TODO: auth, error handling
+        resp = requests.get(self.cores_admin_url, params=params).json()
+
+        return resp
+
     def get_field(self, name: str) -> Optional[Dict[str, Any]]:
 
-        url = f"{self.schema_url}/fields/{name}"
+        url = f"{self.schema_admin_url}/fields/{name}"
 
         # TODO: auth, error handling
         resp = requests.get(url)
@@ -59,7 +122,7 @@ class SolrSchema:
 
     def get_copy_field(self, source: str, dest: str) -> Optional[Dict[str, Any]]:
 
-        url = f"{self.schema_url}/copyfields"
+        url = f"{self.schema_admin_url}/copyfields"
 
         params = {
             "source.fl": [source],
@@ -90,6 +153,7 @@ class SolrSearchProvider(SingletonPlugin):
 
     _client = None
     _admin_client = None
+    _core_admin_client = None
 
     # ISearchProvider
 
@@ -97,21 +161,26 @@ class SolrSearchProvider(SingletonPlugin):
         self, search_schema: SearchSchema, clear: bool
     ) -> None:
 
+        admin_client = self.get_admin_client()
         # TODO: Should be create the ckan core here?
+
+        if not admin_client.get_core():
+            resp = admin_client.create_core()
+            log.info("Created Solr core: %s" % admin_client.core_name)
 
         # TODO: how to handle udpates to the schema:
         #   - Replace fields if a field already exists
         #   - Delete fields no longer in the schema
         #   - Delete copy fields no longer needed
 
-        admin_client = self.get_admin_client()
-
         # Create catch-all field
 
         # TODO: lang
-        resp = admin_client.add_field(
-            "text_combined", "text_en", indexed=True, stored=False, multiValued=True
-        )
+
+        if not admin_client.get_field("text_combined"):
+            admin_client.add_field(
+                "text_combined", "text_en", indexed=True, stored=False, multiValued=True
+            )
 
         # Set unique id
 
@@ -129,7 +198,6 @@ class SolrSearchProvider(SingletonPlugin):
 
             field_name = field.pop("name")
             field_type = field.pop("type")
-
             if admin_client.get_field(field_name):
                 log.info(
                     f"Field '{field_name}' exists and clear not provided, skipping"
@@ -144,8 +212,14 @@ class SolrSearchProvider(SingletonPlugin):
 
                 resp = admin_client.add_field(field_name, field_type, **field)
                 if "error" in resp:
+                    msg = ""
+                    if "details" in resp["error"]:
+                        msg = resp["error"]["details"][0]["errorMessages"]
+                    elif "msg" in resp["error"]:
+                        msg = resp["error"]["msg"][:1000]
+
                     log.warning(
-                        f'Error creating field "{field_name}": {resp["error"]["details"][0]["errorMessages"]}'
+                        f'Error creating field "{field_name}": {msg}'
                     )
                 else:
                     log.info(
@@ -264,6 +338,8 @@ class SolrSearchProvider(SingletonPlugin):
         if self._client:
             return self._client
 
+        # TODO: core in URL
+
         # TODO:
         #   Check conf at startup, handle always_commit, timeout and auth
         self._client = pysolr.Solr(config["ckan.search.solr.url"], always_commit=True)
@@ -274,6 +350,8 @@ class SolrSearchProvider(SingletonPlugin):
 
         if self._admin_client:
             return self._admin_client
+
+        # TODO: core in URL
 
         # TODO:
         #   Check conf at startup, handle always_commit, timeout and auth
