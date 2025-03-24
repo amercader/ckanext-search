@@ -137,11 +137,12 @@ class ElasticSearchProvider(SingletonPlugin):
         if self._client:
             return self._client
 
+        # TODO: config declaration
         es_config = {}
-        if ca_certs_path := config["ckan.search.elasticsearch.ca_certs_path"]:
+        if ca_certs_path := config.get("ckan.search.elasticsearch.ca_certs_path"):
             es_config["ca_certs"] = ca_certs_path
 
-        if password := config["ckan.search.elasticsearch.password"]:
+        if password := config.get("ckan.search.elasticsearch.password"):
             es_config["basic_auth"] = ("elastic", password)
 
         # TODO: review config needed, check on startup
