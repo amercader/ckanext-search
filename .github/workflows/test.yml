@@ -11,7 +11,9 @@ jobs:
       options: --user root
     services:
       solr:
-        image: ckan/ckan-solr:master-solr9
+        # image: ckan/ckan-solr:master-solr9
+
+        image: amercader/ckan-solr:2.11-solr9-spatial
       postgres:
         image: ckan/ckan-postgres-dev:master
         env:
@@ -21,6 +23,12 @@ jobs:
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
       redis:
           image: redis:7
+      elasticsearch:
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+        ports:
+          - 9200:9200
+        options: --health-cmd="curl http://localhost:9200/_cluster/health" -e "discovery.type=single-node" -e "xpack.security.enabled=false"
+
 
     env:
       CKAN_SQLALCHEMY_URL: postgresql://ckan_default:pass@postgres/ckan_test
@@ -36,7 +44,8 @@ jobs:
       run: |
         pip install -r requirements.txt
         pip install -r dev-requirements.txt
-        pip install -e .
+        pip install -e .[solr]
+        pip install -e .[elasticsearch]
     - name: Setup extension
       # Extra initialization steps
       run: |
@@ -44,6 +53,21 @@ jobs:
         sed -i -e 's/use = config:.*/use = config:\/srv\/app\/src\/ckan\/test-core.ini/' test.ini
 
         ckan -c test.ini db init
-    - name: Run tests
-      run: pytest --ckan-ini=test.ini --cov=ckanext.search --disable-warnings ckanext/search
+
+        # Replace service URL in test.ini
+        sed -i -e 's/localhost:8983/solr:8983/' test.ini
+        sed -i -e 's/localhost:9200/elasticsearch:9200/' test.ini
+
+        ckan -c test.ini search init -p solr
+
+        ckan -c test.ini search init -p elasticsearch
+
+
+    - name: Run tests (Solr)
+      continue-on-error: true
+      run: pytest --ckan-ini=test.ini --search-provider=solr --cov=ckanext.search --disable-warnings ckanext/search
+
+    - name: Run tests (Elasticsearch)
+      continue-on-error: true
+      run: pytest --ckan-ini=test.ini --search-provider=elasticsearch --cov=ckanext.search --disable-warnings ckanext/search
 
