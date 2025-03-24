@@ -65,9 +65,9 @@ jobs:
 
     - name: Run tests (Solr)
       continue-on-error: true
-      run: pytest --ckan-ini=test.ini --search-provider=solr --cov=ckanext.search --disable-warnings ckanext/search
+      run: pytest --ckan-ini=test.ini --search-provider=solr --cov=ckanext.search --disable-warnings ckanext/search/tests/providers
 
     - name: Run tests (Elasticsearch)
       continue-on-error: true
-      run: pytest --ckan-ini=test.ini --search-provider=elasticsearch --cov=ckanext.search --disable-warnings ckanext/search
+      run: pytest --ckan-ini=test.ini --search-provider=elasticsearch --cov=ckanext.search --disable-warnings ckanext/search/tests/providers
 
