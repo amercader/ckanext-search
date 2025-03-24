@@ -86,10 +86,7 @@ class ElasticSearchProvider(SingletonPlugin):
         search_data.pop("organization", None)
         # TODO: refresh
         client.index(
-            index=self._index_name,
-            id=index_id,
-            document=search_data,
-            refresh="true"
+            index=self._index_name, id=index_id, document=search_data, refresh="true"
         )
 
     def search_query(
@@ -140,11 +137,16 @@ class ElasticSearchProvider(SingletonPlugin):
         if self._client:
             return self._client
 
+        es_config = {}
+        if ca_certs_path := config["ckan.search.elasticsearch.ca_certs_path"]:
+            es_config["ca_certs"] = ca_certs_path
+
+        if password := config["ckan.search.elasticsearch.password"]:
+            es_config["basic_auth"] = ("elastic", password)
+
         # TODO: review config needed, check on startup
         self._client = Elasticsearch(
-            config["ckan.search.elasticsearch.url"],
-            ca_certs=config["ckan.search.elasticsearch.ca_certs_path"],
-            basic_auth=("elastic", config["ckan.search.elasticsearch.password"]),
+            config["ckan.search.elasticsearch.url"], **es_config
         )
 
         return self._client
