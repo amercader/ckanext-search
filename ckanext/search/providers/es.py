@@ -76,20 +76,17 @@ class ElasticSearchProvider(SingletonPlugin):
     def index_search_record(
         self, entity_type: str, id_: str, search_data: dict[str, str | list[str]]
     ) -> None:
+        # TODO: provider specific params
 
         client = self.get_client()
 
-        index_id = hashlib.md5(
-            b"%s%s" % (id_.encode(), config["ckan.site_id"].encode())
-        ).hexdigest()
+        index_id = id_
 
         # TODO: choose what to commit
         search_data.pop("organization", None)
-
+        # TODO: refresh
         client.index(
-            index=self._index_name,
-            id=index_id,
-            document=search_data,
+            index=self._index_name, id=index_id, document=search_data, refresh="true"
         )
 
     def search_query(
@@ -127,7 +124,10 @@ class ElasticSearchProvider(SingletonPlugin):
 
         client = self.get_client()
         # TODO: review bulk, versions, slices, etc
-        client.delete_by_query(q="*:*", index=self._index_name)
+        # TODO: wait for completion
+        client.delete_by_query(
+            q="*:*", index=self._index_name, wait_for_completion=True
+        )
         log.info("Cleared all documents in the search index")
 
     # Provider methods
@@ -137,11 +137,17 @@ class ElasticSearchProvider(SingletonPlugin):
         if self._client:
             return self._client
 
+        # TODO: config declaration
+        es_config = {}
+        if ca_certs_path := config.get("ckan.search.elasticsearch.ca_certs_path"):
+            es_config["ca_certs"] = ca_certs_path
+
+        if password := config.get("ckan.search.elasticsearch.password"):
+            es_config["basic_auth"] = ("elastic", password)
+
         # TODO: review config needed, check on startup
         self._client = Elasticsearch(
-            config["ckan.search.elasticsearch.url"],
-            ca_certs=config["ckan.search.elasticsearch.ca_certs_path"],
-            basic_auth=("elastic", config["ckan.search.elasticsearch.password"]),
+            config["ckan.search.elasticsearch.url"], **es_config
         )
 
         return self._client

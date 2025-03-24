@@ -1,5 +1,6 @@
+from ckan.plugins import PluginImplementations
 from ckanext.search.index import _get_indexing_plugins
-from ckanext.search.interfaces import SearchSchema
+from ckanext.search.interfaces import SearchSchema, ISearchProvider
 
 
 def merge_search_schemas(schemas: list[SearchSchema]) -> SearchSchema:
@@ -89,7 +90,7 @@ DEFAULT_ORGANIZATION_SEARCH_SCHEMA: SearchSchema = {
 }
 
 
-def init_schema():
+def init_schema(provider_id: str | None = None):
 
     # TODO: combine different entities, schemas provided by extensions
 
@@ -102,5 +103,14 @@ def init_schema():
 
     combined_search_schema = merge_search_schemas(search_schemas)
 
-    for plugin in _get_indexing_plugins():
+    if provider_id:
+        plugins = [
+            plugin
+            for plugin in PluginImplementations(ISearchProvider)
+            if plugin.id == provider_id
+        ]
+    else:
+        plugins = [plugin for plugin in _get_indexing_plugins()]
+
+    for plugin in plugins:
         plugin.initialize_search_provider(combined_search_schema, clear=False)
