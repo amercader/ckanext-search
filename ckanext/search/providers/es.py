@@ -100,6 +100,7 @@ class ElasticSearchProvider(SingletonPlugin):
         return_entity_types: bool = False,
         return_facets: bool = False,
         limit: int = 20,
+        start: int = 0,
     ) -> Optional[SearchResults]:
 
         # Transform generic search params to Elastic Search query params

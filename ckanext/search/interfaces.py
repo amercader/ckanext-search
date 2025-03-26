@@ -37,6 +37,7 @@ class ISearchProvider(Interface):
         return_facets: bool = False,  # True: return facet counts for available indexes
         # TODO: config
         limit: int = 20,  # maximum records to return, None: maximum provider allows
+        start: int = 0,
     ) -> Optional[SearchResults]:
         """generate search results or return None if another provider
         should be used for the query"""
