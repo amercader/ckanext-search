@@ -266,7 +266,7 @@ class SolrSearchProvider(SingletonPlugin):
 
     def search_query(
         self,
-        query: str,
+        q: str,
         filters: dict[str, str | list[str]],
         sort: list[list[str]],
         additional_params: dict[str, Any],
@@ -283,7 +283,7 @@ class SolrSearchProvider(SingletonPlugin):
         df = additional_params.get("df") or "text_combined"
 
         solr_params = {
-            "q": query,
+            "q": q,
             "df": df,
             "fq": [],
         }

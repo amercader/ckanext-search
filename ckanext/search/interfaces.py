@@ -22,7 +22,7 @@ class ISearchProvider(Interface):
 
     def search_query(
         self,
-        query: str,  # e.g. 'water data'
+        q: str,  # e.g. 'water data'
         filters: dict[
             str, str | list[str]
         ],  # e.g. {'metadata_modified<': '2024-01-01', 'entity_type': ['package']}

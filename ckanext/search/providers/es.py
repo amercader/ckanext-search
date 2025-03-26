@@ -91,7 +91,7 @@ class ElasticSearchProvider(SingletonPlugin):
 
     def search_query(
         self,
-        query: str,
+        q: str,
         filters: dict[str, str | list[str]],
         sort: list[list[str]],
         additional_params: dict[str, Any],
@@ -106,7 +106,7 @@ class ElasticSearchProvider(SingletonPlugin):
         # Transform generic search params to Elastic Search query params
 
         # TODO: Use ES query DSL
-        es_params = {"q": query}
+        es_params = {"q": q}
 
         client = self.get_client()
 
