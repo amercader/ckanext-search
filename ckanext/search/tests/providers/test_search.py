@@ -1,5 +1,5 @@
 import pytest
-from ckanext.search.actions import search as search_action
+from ckanext.search.logic.actions import search as search_action
 from ckanext.search.index import clear_index
 from ckanext.search.tests import factories
 

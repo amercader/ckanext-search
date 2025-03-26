@@ -27,10 +27,8 @@ def merge_search_schemas(schemas: list[SearchSchema]) -> SearchSchema:
                 # Check if the new field definition matches the existing one
                 existing_field = field_map[name]
                 # Create copies without the name for comparison
-                field_copy = field.copy()
-                existing_copy = existing_field.copy()
-                field_name = field_copy.pop("name")
-                existing_copy.pop("name")
+                field_copy = field.copy().pop("name")
+                existing_copy = existing_field.copy().pop("name")
 
                 if field_copy != existing_copy:
                     raise ValueError(

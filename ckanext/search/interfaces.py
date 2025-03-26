@@ -1,6 +1,7 @@
 # This will eventually live in CKAN core
 from typing import Any, Iterable, Optional, TypedDict
 
+from ckan.types import Schema
 from ckan.plugins.interfaces import Interface
 
 
@@ -61,8 +62,16 @@ class ISearchProvider(Interface):
     def clear_index(self) -> None:
         """Clear all documents from the index"""
 
+    def search_query_schema(self) -> Schema:
+        """
+        Return a schema to validate custom query parameters. Can be used to add new
+        supported query parameters.
+        """
+        return {}
 
-class ISearchFeature:
+
+class ISearchFeature(Interface):
+
     def entity_types(self) -> list[str]:
         "return list of entity types covered by this feature"
         pass
@@ -70,6 +79,14 @@ class ISearchFeature:
     def search_schema(self) -> SearchSchema:
         """return index fields names, their types (text, str, date, numeric)
         and whether they are repeating"""
+        pass
+
+    def search_query_schema(self) -> Schema:
+        """
+        Return a schema to validate custom query parameters. Can be used to add new
+        supported query parameters.
+        """
+        return {}
 
     def format_search_data(
         self, entity_type: str, data: dict[str:Any]
