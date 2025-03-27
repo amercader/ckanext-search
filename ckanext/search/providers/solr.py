@@ -8,7 +8,8 @@ from urllib.parse import urlparse, urlunparse
 import pysolr
 import requests
 from ckan.plugins import SingletonPlugin, implements
-from ckan.plugins.toolkit import config
+from ckan.plugins.toolkit import config, get_validator
+from ckan.types import Schema
 from ckanext.search.interfaces import ISearchProvider, SearchResults, SearchSchema
 
 log = logging.getLogger(__name__)
@@ -93,8 +94,7 @@ class SolrSchema:
         if not core_name:
             core_name = self.core_name
 
-        params = {
-            "action": "CREATE", "name": core_name, "configSet": "_default"}
+        params = {"action": "CREATE", "name": core_name, "configSet": "_default"}
         # TODO: auth, error handling
         resp = requests.get(self.cores_admin_url, params=params).json()
 
@@ -218,9 +218,7 @@ class SolrSearchProvider(SingletonPlugin):
                     elif "msg" in resp["error"]:
                         msg = resp["error"]["msg"][:1000]
 
-                    log.warning(
-                        f'Error creating field "{field_name}": {msg}'
-                    )
+                    log.warning(f'Error creating field "{field_name}": {msg}')
                 else:
                     log.info(
                         f"Added field '{field_name}' to index, with type {field_type} and params {field}"
@@ -263,6 +261,32 @@ class SolrSearchProvider(SingletonPlugin):
             log.error(msg)
             # TODO: custom exception
             raise Exception(msg)
+
+    def search_query_schema(self) -> Schema:
+        """
+        Return a schema to validate Solr specific custom query parameters.
+        """
+
+        ignore_missing = get_validator("ignore_missing")
+        unicode_safe = get_validator("unicode_safe")
+        convert_to_list_if_string = get_validator("convert_to_list_if_string")
+
+        search_query_schema = {
+            "df": [ignore_missing, unicode_safe],
+            "fl": [ignore_missing, unicode_safe],
+            "qf": [ignore_missing, unicode_safe],
+            "bf": [ignore_missing, unicode_safe],
+            "boost": [ignore_missing, unicode_safe],
+            "tie": [ignore_missing, unicode_safe],
+            "defType": [ignore_missing, unicode_safe],
+            "mm": [ignore_missing, unicode_safe],
+            # Compatibility params with old API
+            "fq": [ignore_missing, convert_to_list_if_string],
+            "rows": [ignore_missing, unicode_safe],
+            # TODO: 'facet', 'facet.mincount', 'facet.limit', 'facet.field',
+        }
+
+        return search_query_schema
 
     def search_query(
         self,
