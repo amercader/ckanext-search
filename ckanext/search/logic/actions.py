@@ -4,9 +4,7 @@ import ckan.authz as authz
 from ckan.lib.plugins import get_permission_labels
 from ckan.plugins import PluginImplementations
 from ckan.plugins.toolkit import (
-    aslist,
     config,
-    get_action,
     side_effect_free,
     navl_validate,
     ValidationError,
@@ -22,10 +20,6 @@ def search(context, data_dict):
     # TODO: Check auth
     user = context.get("user")
 
-    # TODO:
-
-    # Validate data_dict. Any key not in the standard schema is moved to
-    # additional_params
     schema = default_search_query_schema()
 
     additional_params_schema = {}
@@ -38,7 +32,6 @@ def search(context, data_dict):
         additional_params_schema.update(plugin.search_query_schema())
 
     # Any fields not in the default schema are moved to additional_params
-
     query_dict = {
         "q": "",
         "filters": {},
@@ -52,8 +45,11 @@ def search(context, data_dict):
     for param in data_dict.keys():
         if param in schema:
             query_dict[param] = data_dict[param]
-        else:
+        elif param in additional_params_schema:
             additional_params[param] = data_dict[param]
+        else:
+            # TODO: do we want to fail or silently ignore extra params?
+            raise ValidationError({"message": f"Unknown parameter: {param}"})
 
     # Validate common params
     query_dict, errors = navl_validate(query_dict, schema, context)
