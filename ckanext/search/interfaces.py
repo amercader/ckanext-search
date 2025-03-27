@@ -7,6 +7,7 @@ from ckan.plugins.interfaces import Interface
 
 class SearchSchema(TypedDict, total=False):
     """Type definition for search schema"""
+
     version: int
     fields: list[dict[str, Any]]  # field properties like type, repeating, etc.
 
@@ -72,21 +73,17 @@ class ISearchProvider(Interface):
 
 class ISearchFeature(Interface):
 
+    # TODO: is this needed?
     def entity_types(self) -> list[str]:
         "return list of entity types covered by this feature"
         pass
+
+    # Indexing
 
     def search_schema(self) -> SearchSchema:
         """return index fields names, their types (text, str, date, numeric)
         and whether they are repeating"""
         pass
-
-    def search_query_schema(self) -> Schema:
-        """
-        Return a schema to validate custom query parameters. Can be used to add new
-        supported query parameters.
-        """
-        return {}
 
     def format_search_data(
         self, entity_type: str, data: dict[str:Any]
@@ -108,3 +105,30 @@ class ISearchFeature(Interface):
         feature, or only records for the ids passed if not None.
         This method is used to rebuild all or some records in the search
         index"""
+
+    # Querying
+
+    def search_query_schema(self) -> Schema:
+        """
+        Return a schema to validate custom query parameters. Can be used to add new
+        supported query parameters.
+        """
+        return {}
+
+    def before_query(self, query_params: dict[str, Any]) -> dict[str, Any]:
+        """
+        Called before sending the query to the search provider, allows to modify
+        the sent query parameters.
+        """
+
+        return query_params
+
+    def after_query(
+        self, query_results: dict[str, Any], query_params: dict[str, Any]
+    ) -> dict[str, Any]:
+        """
+        Called just before returning the search results. Besides the results from
+        the provider, it also receives the params used in the query.
+        """
+
+        return query_results

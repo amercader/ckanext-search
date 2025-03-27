@@ -9,16 +9,28 @@ from ckan.plugins.toolkit import (
     navl_validate,
     ValidationError,
 )
-
+from ckan.types import Context, DataDict
 from ckanext.search.interfaces import ISearchProvider, ISearchFeature
 from ckanext.search.logic.schema import default_search_query_schema
 
 
+def _get_permission_labels(context: Context) -> list[str] | None:
+
+    user = context.get("user")
+    if context.get("ignore_auth") or (user and authz.is_sysadmin(user)):
+        labels = None
+    else:
+        labels = get_permission_labels().get_user_dataset_labels(
+            context["auth_user_obj"]
+        )
+
+    return labels
+
+
 @side_effect_free
-def search(context, data_dict):
+def search(context: Context, data_dict: DataDict):
 
     # TODO: Check auth
-    user = context.get("user")
 
     schema = default_search_query_schema()
 
@@ -65,14 +77,12 @@ def search(context, data_dict):
 
     query_dict["additional_params"] = additional_params
 
+    # Allow search extensions to modify the query params
+    for plugin in PluginImplementations(ISearchFeature):
+        plugin.before_query(query_dict)
+
     # Permission labels
-    if context.get("ignore_auth") or (user and authz.is_sysadmin(user)):
-        labels = None
-    else:
-        labels = get_permission_labels().get_user_dataset_labels(
-            context["auth_user_obj"]
-        )
-    if labels:
+    if labels := _get_permission_labels(context):
         query_dict["filters"]["permission_labels"] = labels
 
     search_backend = config["ckan.search.search_backend"]
@@ -81,6 +91,10 @@ def search(context, data_dict):
         if plugin.id == search_backend:
             result = plugin.search_query(**query_dict)
             break
+
+    # Allow search extensions to modify the query results
+    for plugin in PluginImplementations(ISearchFeature):
+        plugin.after_query(result, query_dict)
 
     # TODO
     # if context.get('for_view'):

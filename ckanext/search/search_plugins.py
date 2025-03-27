@@ -1,7 +1,7 @@
 from typing import Any
 
 from ckan.plugins import SingletonPlugin, implements
-from ckan.plugins.toolkit import Invalid
+from ckan.plugins.toolkit import Invalid, get_validator
 from ckan.types import Schema
 from ckanext.search.interfaces import ISearchFeature, SearchSchema
 
@@ -53,7 +53,27 @@ class SpatialSearch(SingletonPlugin):
         """
         search_query_schema = {}
 
+        ignore_missing = get_validator("ignore_missing")
+        ignore_empty = get_validator("ignore_empty")
+
         # Bounding box coordinates: minx, miny, maxx, maxy
-        search_query_schema["bbox"] = [bbox_validator]
+        search_query_schema["bbox"] = [ignore_missing, ignore_empty, bbox_validator]
 
         return search_query_schema
+
+    def before_query(self, query_params: dict[str, Any]) -> dict[str, Any]:
+
+        if bbox := query_params["additional_params"].get("bbox"):
+
+            if "fq" not in query_params["additional_params"]:
+                query_params["additional_params"]["fq"] = []
+
+            query_params["additional_params"]["fq"].append(
+                "{{!field f=spatial_geom}}"
+                "Intersects(ENVELOPE({minx}, {maxx}, {maxy}, {miny}))".format(
+                    **bbox
+                )
+            )
+            query_params["additional_params"].pop("bbox")
+
+        return query_params

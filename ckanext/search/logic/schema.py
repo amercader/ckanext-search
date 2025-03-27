@@ -11,7 +11,6 @@ def default_search_query_schema(
     unicode_safe: Validator,
     list_of_strings: Validator,
     natural_number_validator: Validator,
-    int_validator: Validator,
     convert_to_json_if_string: Validator,
     convert_to_list_if_string: Validator,
     limit_to_configured_maximum: ValidatorFactory,
@@ -20,7 +19,6 @@ def default_search_query_schema(
 
     return {
         "q": [ignore_missing, unicode_safe],
-        "fq": [ignore_missing, unicode_safe],
         "limit": [
             default(10),
             natural_number_validator,
