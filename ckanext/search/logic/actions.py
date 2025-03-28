@@ -57,11 +57,8 @@ def search(context: Context, data_dict: DataDict):
     for param in data_dict.keys():
         if param in schema:
             query_dict[param] = data_dict[param]
-        elif param in additional_params_schema:
-            additional_params[param] = data_dict[param]
         else:
-            # TODO: do we want to fail or silently ignore extra params?
-            raise ValidationError({"message": f"Unknown parameter: {param}"})
+            additional_params[param] = data_dict[param]
 
     # Validate common params
     query_dict, errors = navl_validate(query_dict, schema, context)
@@ -74,9 +71,12 @@ def search(context: Context, data_dict: DataDict):
     )
     if errors:
         raise ValidationError(errors)
+    elif "__extras" in additional_params:
+        unknown_params = ", ".join(additional_params["__extras"].keys())
+
+        raise ValidationError({"message": f"Unknown parameters: {unknown_params}"})
 
     query_dict["additional_params"] = additional_params
-
     # Allow search extensions to modify the query params
     for plugin in PluginImplementations(ISearchFeature):
         plugin.before_query(query_dict)
