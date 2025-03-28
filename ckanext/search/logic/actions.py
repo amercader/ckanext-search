@@ -4,6 +4,7 @@ import ckan.authz as authz
 from ckan.lib.plugins import get_permission_labels
 from ckan.plugins import PluginImplementations
 from ckan.plugins.toolkit import (
+    check_access,
     config,
     side_effect_free,
     navl_validate,
@@ -30,7 +31,7 @@ def _get_permission_labels(context: Context) -> list[str] | None:
 @side_effect_free
 def search(context: Context, data_dict: DataDict):
 
-    # TODO: Check auth
+    check_access("search", context, data_dict)
 
     schema = default_search_query_schema()
 
@@ -73,7 +74,6 @@ def search(context: Context, data_dict: DataDict):
         raise ValidationError(errors)
     elif "__extras" in additional_params:
         unknown_params = ", ".join(additional_params["__extras"].keys())
-
         raise ValidationError({"message": f"Unknown parameters: {unknown_params}"})
 
     query_dict["additional_params"] = additional_params
