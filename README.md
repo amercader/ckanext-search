@@ -19,13 +19,12 @@ This POC combines in a single extension code that should eventually live in diff
 
 There are providers for Solr and Elasticsearch.
 
-For Solr you can use the CKAN Docker images, but create a different core (don't use the `ckan` one):
+~~For Solr you can use the CKAN Docker images:~~
 
-    docker run --name ckan-solr -p 8983:8983 -d ckan/ckan-solr:2.11-solr9
+Temporarily,use this Docker image:
 
-And then:
 
-    docker exec ckan-solr solr create -c ckan2
+    docker run --name ckan-solr -p 8983:8983 -d amercader/ckan-solr:2.11-solr9
 
 
 For Elasticsearch:
@@ -51,20 +50,22 @@ Config options (may change):
 
 ### Backlog
 
+Note: these are meant in the context of the proof of concept, not as final implementations.
+
 - [x] Basic providers for Solr and Elasticsearch implementing `ISearchProvider`
 - [x] Minimal indexing for datasets
 - [x] Minimal querying for datasets
-- [ ] Support additional entity types (orgs, users, etc)
-- [ ] General text search across all fields
-- [ ] Initialize search provider: combined search schema
-- [ ] Initialize: setup Solr
-- [ ] Initialize: setup ES
+- [x] Support additional entity types (orgs, users, etc)
+- [x] General text search across all fields
+- [x] Initialize search provider: combined search schema
+- [x] Initialize: setup Solr
+- [x] Initialize: setup ES
 - [ ] Choose what to index
 - [ ] Language (stemming, etc)
-- [ ] `search` API params, validation
+- [x] `search` API params, validation
 - [ ] `search` API output
 - [ ] Return data_dicts vs ids or fl
-- [ ] Support for `_before/after_index/search` plugin hooks
+- [x] Support for `_before/after_index/search` plugin hooks
 - [ ] Faceting
 - [ ] Error handling
 - [ ] Entity specific actions (`dataset_search`, `organization_search`, etc)
