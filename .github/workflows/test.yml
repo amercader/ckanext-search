@@ -62,12 +62,14 @@ jobs:
 
         ckan -c test.ini search init -p elasticsearch
 
+    - name: Run search tests
+      run: pytest --ckan-ini=test.ini --ignore=ckanext/search/tests/providers --cov=ckanext.search --disable-warnings ckanext/search/tests
 
-    - name: Run tests (Solr)
+    - name: Run Provider tests (Solr)
       continue-on-error: true
       run: pytest --ckan-ini=test.ini --search-provider=solr --cov=ckanext.search --disable-warnings ckanext/search/tests/providers
 
-    - name: Run tests (Elasticsearch)
+    - name: Run Provider tests (Elasticsearch)
       continue-on-error: true
       run: pytest --ckan-ini=test.ini --search-provider=elasticsearch --cov=ckanext.search --disable-warnings ckanext/search/tests/providers
 
