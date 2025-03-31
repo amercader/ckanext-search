@@ -10,6 +10,7 @@ def default_search_query_schema(
     remove_whitespace: Validator,
     unicode_safe: Validator,
     list_of_strings: Validator,
+    json_list_or_string: Validator,
     natural_number_validator: Validator,
     convert_to_json_if_string: Validator,
     convert_to_list_if_string: Validator,
@@ -24,7 +25,8 @@ def default_search_query_schema(
             natural_number_validator,
             limit_to_configured_maximum("ckan.search.rows_max", 1000),
         ],
-        "sort": [ignore_missing, convert_to_list_if_string],
+        "sort": [ignore_missing, json_list_or_string],
+        # TODO: index value based ordering
         "start": [ignore_missing, ignore_empty, natural_number_validator],
         "filters": [ignore_missing, convert_to_json_if_string],
         "lang": [ignore_missing],
