@@ -85,6 +85,12 @@ class ISearchFeature(Interface):
         and whether they are repeating"""
         pass
 
+    def before_index(
+        self, entity_type: str, id_: str, search_data: dict[str, str | list[str]]
+    ) -> None:
+
+        pass
+
     def format_search_data(
         self, entity_type: str, data: dict[str:Any]
     ) -> dict[str, str | list[str]]:
