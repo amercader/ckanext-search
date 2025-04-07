@@ -22,6 +22,9 @@ class SearchResults(TypedDict, total=False):
 
 class ISearchProvider(Interface):
 
+    # A unique identifier for this provider that can be referenced in config and code
+    id = ""
+
     def search_query(
         self,
         q: str,  # e.g. 'water data'
@@ -73,10 +76,20 @@ class ISearchProvider(Interface):
 
 class ISearchFeature(Interface):
 
-    # TODO: is this needed?
     def entity_types(self) -> list[str]:
         "return list of entity types covered by this feature"
         pass
+
+    def supported_providers(self) -> list[str]:
+        """Return a list of providers supported by this feature. It must
+        return a list"""
+
+    # Configuring
+    def initialize_search_provider(
+        self, combined_schema: SearchSchema, clear: bool
+    ) -> None:
+        """create or update indexes for fields based on combined search
+        schema containing all field names, types and repeating state"""
 
     # Indexing
 

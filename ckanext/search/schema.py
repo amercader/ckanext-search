@@ -1,6 +1,6 @@
 from ckan.plugins import PluginImplementations
 from ckanext.search.index import _get_indexing_plugins
-from ckanext.search.interfaces import SearchSchema, ISearchProvider
+from ckanext.search.interfaces import SearchSchema, ISearchProvider, ISearchFeature
 
 
 def merge_search_schemas(schemas: list[SearchSchema]) -> SearchSchema:
@@ -101,14 +101,24 @@ def init_schema(provider_id: str | None = None):
 
     combined_search_schema = merge_search_schemas(search_schemas)
 
+    provider_ids = []
+    # Search providers set things up first
+
     if provider_id:
         plugins = [
             plugin
             for plugin in PluginImplementations(ISearchProvider)
             if plugin.id == provider_id
         ]
+        provider_ids.append(plugin.id)
     else:
         plugins = [plugin for plugin in _get_indexing_plugins()]
+        provider_ids = [p.id for p in plugins]
 
     for plugin in plugins:
         plugin.initialize_search_provider(combined_search_schema, clear=False)
+
+    # Search feature plugins can add things later
+    for plugin in PluginImplementations(ISearchFeature):
+        if any(provider_id in plugin.supported_providers() for provider_id in provider_ids):
+            plugin.initialize_search_provider(combined_search_schema, clear=False)
