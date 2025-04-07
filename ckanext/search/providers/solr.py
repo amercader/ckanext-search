@@ -120,6 +120,26 @@ class SolrSchema:
 
         return resp
 
+    def get_field_type(self, name: str) -> Optional[Dict[str, Any]]:
+
+        url = f"{self.schema_admin_url}/fieldtypes/{name}"
+
+        # TODO: auth, error handling
+        resp = requests.get(url)
+
+        resp = resp.json()
+
+        return resp["fieldType"] if resp.get("fieldType") else None
+
+    def add_field_type(self, name: str, **kwargs: Any) -> Dict[str, Any]:
+
+        params = {"name": name}
+        params.update(kwargs)
+
+        resp = self._request("add-field-type", params)
+
+        return resp
+
     def get_copy_field(self, source: str, dest: str) -> Optional[Dict[str, Any]]:
 
         url = f"{self.schema_admin_url}/copyfields"
@@ -303,13 +323,20 @@ class SolrSearchProvider(SingletonPlugin):
     ) -> Optional[SearchResults]:
 
         # Transform generic search params to Solr query params
+        if not q:
+            q = "*:*"
 
         df = additional_params.get("df") or "text_combined"
+
+        # TODO: transform filters and combine
+        fq = additional_params.get("fq") or []
+        if isinstance(fq, str):
+            fq = [str]
 
         solr_params = {
             "q": q,
             "df": df,
-            "fq": [],
+            "fq": fq,
         }
 
         # TODO: perm labels for arbitrary entities
