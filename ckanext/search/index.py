@@ -29,9 +29,11 @@ def index_dataset(id_: str) -> None:
 
     context = {
         "ignore_auth": True,
-        "for_indexing": True,  # TODO: implement support in core
-        "validate": False,
+        "use_cache": False
+        # "for_indexing": True,  # TODO: implement support in core?
     }
+
+    # Request the validated dataset
     dataset_dict = get_action("package_show")(context, {"id": id_})
 
     return index_dataset_dict(dataset_dict)
@@ -67,8 +69,8 @@ def index_organization(id_: str) -> None:
 
     context = {
         "ignore_auth": True,
-        "for_indexing": True,  # TODO: implement support in core
-        "validate": False,
+        "use_cache": False, # TODO: not really used in core outside datasets
+        # "for_indexing": True,  # TODO: implement support in core
     }
     org_dict = get_action("organization_show")(context, {"id": id_})
 
