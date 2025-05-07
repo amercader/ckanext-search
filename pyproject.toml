@@ -21,7 +21,7 @@ dependencies = []
 # TODO: move this to their own extensions
 [project.optional-dependencies]
 solr = ["pysolr"]
-elasticsearch = ["elasticsearch"]
+elasticsearch = ["elasticsearch<9"]
 
 
 [project.urls]

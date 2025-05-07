@@ -36,6 +36,10 @@ class ElasticSearchProvider(SingletonPlugin):
     ) -> None:
 
         client = self.get_client()
+
+        # This will raise an exception if there are connection issues
+        log.debug(client.info())
+
         # Check if index exists, create otherwise
         if not client.indices.exists(index=self._index_name):
 
