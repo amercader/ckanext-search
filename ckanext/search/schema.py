@@ -110,7 +110,7 @@ def init_schema(provider_id: str | None = None):
             for plugin in PluginImplementations(ISearchProvider)
             if plugin.id == provider_id
         ]
-        provider_ids.append(plugin.id)
+        provider_ids.append(provider_id)
     else:
         plugins = [plugin for plugin in _get_indexing_plugins()]
         provider_ids = [p.id for p in plugins]
