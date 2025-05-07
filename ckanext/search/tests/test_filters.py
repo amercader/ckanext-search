@@ -10,7 +10,9 @@ def test_filters_no_value(filters):
     assert query_filters_validator(filters) is None
 
 
-@pytest.mark.parametrize("filters", [1, "a", "a,b", '{"a": "b"}'])
+@pytest.mark.parametrize(
+    "filters", [1, "a", "a,b", '{"a": "b"}', ["a"], ["a", "b"], [{"a": "b"}, "c"]]
+)
 def test_filters_invalid_format(filters):
 
     with pytest.raises(Invalid) as e:
@@ -19,13 +21,20 @@ def test_filters_invalid_format(filters):
     assert e.value.error == "Filters must be defined as a dict or a list of dicts"
 
 
-@pytest.mark.parametrize("filters", [["a"], ["a", "b"], [{"a": "b"}, "c"]])
-def test_filters_list_invalid_format(filters):
-
-    with pytest.raises(Invalid) as e:
-        query_filters_validator(filters)
-
-    assert e.value.error == "Filters must be defined as a dict or a list of dicts"
+def test_filters_known_top_operators():
+    filters = {
+        "field1": "value1",
+        "$or": [
+            {"field2": "value2"},
+            {"field3": "value3"},
+        ],
+        "$and": [
+            {"field2": "value4"},
+            {"field3": "value5"},
+        ],
+    }
+    assert "$or" in query_filters_validator(filters)
+    assert "$and" in query_filters_validator(filters)
 
 
 def test_filters_unknown_top_operators():
@@ -36,9 +45,26 @@ def test_filters_unknown_top_operators():
 
     assert e.value.error == "Unknown operators (must be one of $or, $and): ['$maybe']"
 
+
 def test_filters_dollar_fields_escaped():
 
     filters = {"$$some_field": "some_value"}
 
     assert "$$some_field" in query_filters_validator(filters)
 
+
+@pytest.mark.parametrize(
+    "or_filters", [1, "a", "a,b", '{"a": "b"}', ["a"], ["a", "b"], [{"a": "b"}, "c"]]
+)
+def test_filters_top_operators_invalid_format(or_filters):
+    filters = {
+        "field1": "value1",
+        "$or": or_filters,
+    }
+    with pytest.raises(Invalid) as e:
+        query_filters_validator(filters)
+
+    assert (
+        e.value.error
+        == "Top level operations must be defined as a dict or a list of dicts"
+    )
