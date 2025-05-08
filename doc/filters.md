@@ -17,11 +17,12 @@ For example:
 
 ```
 "filters": {
-    "field1": "value",
-    "$or": [
-        {"field2": ["value1", "value2"]},
-        {"field3": {"gte": 9000, "lt": 1000}}
-    ]
+    "incident": "noise complaint",
+    "$or": {
+        "resolution": ["unresolved", "in progress"],
+        "year": {"gt": 2024}
+    },
+    "sector": [2, 8, 10, {"gte":15, "lte": 30}, 35],
 }
 ```
 
@@ -149,10 +150,7 @@ If filters contain lists of operator/value dictionaries, these are combined with
 
 ```
   {
-    "<field_name>": [
-      {"<operator1>" : <value1>}, 
-      {"<operator2>" : <value2>}
-    ]
+    "year": [1990, 2010, {"gt", 2023}]
   }
 ```
 
@@ -161,8 +159,8 @@ is equivalent to:
 ```
   {
     "$or": [
-      {"field_name": {"<operator1>" : <value1>}}, 
-      {"field_name": {"<operator2>" : <value2>}}
+      {"year": {"in": [1990, 2010]}}, 
+      {"year": {"gt": 2023}}
     ]
   }
 ```
@@ -171,7 +169,7 @@ Operators inside the same dict are combined with the AND operator, i.e. the foll
 
 ```
   {
-    "<field_name>": {"<operator1>" : <value1>}, {"<operator2>" : <value2>}
+    "last_name": {"gte" : "Jeong", "lte": "Romano"}
   }
 ```
 
@@ -180,8 +178,8 @@ is equivalent to:
 ```
     {
       "$and": [
-        "<field_name>": {"<operator1>" : <value1>},
-        "<field_name>": {"<operator2>" : <value2>}
+        {"last_name": {"gte" : "Jeong"}},
+        {"last_name": {"lte" : "Romano"}}
       ]
     }
 
