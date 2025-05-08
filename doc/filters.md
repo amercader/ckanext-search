@@ -18,10 +18,10 @@ For example:
 ```
 "filters": {
     "incident": "noise complaint",
-    "$or": {
-        "resolution": ["unresolved", "in progress"],
-        "year": {"gt": 2024}
-    },
+    "$or": [
+        {"resolution": ["unresolved", "in progress"]},
+        {"year": {"gt": 2024}}
+    ],
     "sector": [2, 8, 10, {"gte":15, "lte": 30}, 35],
 }
 ```
@@ -57,11 +57,11 @@ Individual filters have the form:
 
 ```
 
-Note that fields starting with the character `$` must be escaped with another `$` character:
+Note that fields starting with the character `$` must be escaped with another `$` character, for example a `$AU` field would be given as:
 
 ```
 filters: {
-    "$$some_field": "some_value"
+    "$$AU": {"lt": 150}
 }
 ```
 
@@ -146,7 +146,7 @@ following are incorrect:
 
 ```
 
-If filters contain lists of operator/value dictionaries, these are combined with the OR operator, e.g.:
+If a field operation is a lists of values or other field operations, the values are grouped into an "in" field operation and the field operations are ORed together, e.g.:
 
 ```
   {
