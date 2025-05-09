@@ -87,6 +87,23 @@ def _process_filter_operator_members(value: Any) -> List[Dict[str, Any]]:
     return out
 
 
+def _to_filter_op(filters_dict: dict) -> Optional[FilterOp]:
+
+    out = []
+    for k, v in filters_dict.items():
+        if k in FILTER_OPERATORS:
+            out.append(FilterOp(field=None, op=k, value=[_to_filter_op(x) for x in v]))
+        else:
+            op = list(v.keys())[0]
+            params = v[op]
+            out.append(FilterOp(field=k, op=op, value=params))
+
+    if len(out):
+        return out[0]
+
+    return
+
+
 def _process_field_operator(field_name: str, value: Any) -> Dict[str, Any]:
 
     if not isinstance(value, (dict, list)):
@@ -127,7 +144,7 @@ def _process_field_operator(field_name: str, value: Any) -> Dict[str, Any]:
 
 def query_filters_validator(
     value: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]],
-) -> Optional[Dict[str, Any]]:
+) -> Optional[FilterOp]:
 
     if not value:
         return None
@@ -167,4 +184,7 @@ def query_filters_validator(
         if op in filters:
             filters[op] = _process_filter_operator_members(filters[op])
 
-    return filters
+    # Translate output dict to immutable FilterOp
+    out = _to_filter_op(filters)
+
+    return out
