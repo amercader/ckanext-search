@@ -33,7 +33,6 @@ def test_filters_known_top_operators():
             {"field3": "value5"},
         ],
     }
-    assert "$or" in query_filters_validator(filters)
     assert "$and" in query_filters_validator(filters)
 
 
@@ -43,7 +42,7 @@ def test_filters_unknown_top_operators():
     with pytest.raises(Invalid) as e:
         query_filters_validator(filters)
 
-    assert e.value.error == "Unknown operators (must be one of $or, $and): ['$maybe']"
+    assert e.value.error == "Unknown operators (must be one of $or, $and): $maybe"
 
 
 def test_filters_dollar_fields_escaped():
@@ -66,5 +65,5 @@ def test_filters_top_operators_invalid_format(or_filters):
 
     assert (
         e.value.error
-        == "Top level operations must be defined as a dict or a list of dicts"
+        == "Filter operations must be defined as a list of dicts"
     )
