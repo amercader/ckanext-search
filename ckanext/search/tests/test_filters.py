@@ -33,7 +33,8 @@ def test_filters_known_top_operators():
             {"field3": "value5"},
         ],
     }
-    assert "$and" in query_filters_validator(filters)
+    result = query_filters_validator(filters)
+    assert result and result.op == "$and"
 
 
 def test_filters_unknown_top_operators():
@@ -49,7 +50,8 @@ def test_filters_dollar_fields_escaped():
 
     filters = {"$$some_field": "some_value"}
 
-    assert "$$some_field" in query_filters_validator(filters)
+    result = query_filters_validator(filters)
+    assert result and result.field == "$some_field" and result.op == "eq"
 
 
 @pytest.mark.parametrize(
@@ -63,7 +65,4 @@ def test_filters_top_operators_invalid_format(or_filters):
     with pytest.raises(Invalid) as e:
         query_filters_validator(filters)
 
-    assert (
-        e.value.error
-        == "Filter operations must be defined as a list of dicts"
-    )
+    assert e.value.error == "Filter operations must be defined as a list of dicts"

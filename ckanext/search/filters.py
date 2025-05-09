@@ -94,6 +94,8 @@ def _to_filter_op(filters_dict: dict) -> Optional[FilterOp]:
         if k in FILTER_OPERATORS:
             out.append(FilterOp(field=None, op=k, value=[_to_filter_op(x) for x in v]))
         else:
+            if k.startswith("$$"):
+                k = k[1:]
             op = list(v.keys())[0]
             params = v[op]
             out.append(FilterOp(field=k, op=op, value=params))
