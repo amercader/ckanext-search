@@ -14,6 +14,26 @@ class FilterOp(NamedTuple):
     field: Optional[str]
     value: Any
 
+    def __repr__(self) -> str:
+        if (
+            isinstance(self.value, list)
+            and self.value
+            and isinstance(self.value[0], FilterOp)
+        ):
+            child_reprs = []
+            for child in self.value:
+                child_lines = str(child).split("\n")
+                indented_lines = ["    " + line for line in child_lines]
+                child_reprs.append("\n".join(indented_lines))
+
+            value_str = "[\n" + ",\n".join(child_reprs) + "\n]"
+        else:
+            value_str = repr(self.value)
+
+        return (
+            f"FilterOp(op={repr(self.op)}, field={repr(self.field)}, value={value_str})"
+        )
+
 
 FILTER_OPERATORS = ["$or", "$and"]
 
@@ -105,8 +125,9 @@ def _process_field_operator(field_name: str, value: Any) -> Dict[str, Any]:
         return {"$or": members}
 
 
-
-def query_filters_validator(value: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]]) -> Optional[Dict[str, Any]]:
+def query_filters_validator(
+    value: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]],
+) -> Optional[Dict[str, Any]]:
 
     if not value:
         return None
@@ -116,6 +137,7 @@ def query_filters_validator(value: Optional[Union[Dict[str, Any], List[Dict[str,
         raise Invalid("Filters must be defined as a dict or a list of dicts")
 
     filters = {}
+
     # Normalize to dict
     if isinstance(value, list):
         filters = {"$or": value}
