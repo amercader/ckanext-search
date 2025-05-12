@@ -91,7 +91,7 @@ def _to_filter_op(filters_dict: dict) -> Optional[FilterOp]:
 
     out = []
     for k, v in filters_dict.items():
-        if k in FILTER_OPERATORS:
+        if k.startswith("$") and not k.startswith("$$"):
             out.append(FilterOp(field=None, op=k, value=[_to_filter_op(x) for x in v]))
         else:
             if k.startswith("$$"):
@@ -180,7 +180,12 @@ def query_filters_validator(
                 if "$and" not in filters:
                     filters["$and"] = []
 
-                filters["$and"].append({k: v})
+                if k == "$and":
+                    _check_filter_operator(k, v)
+                    filters["$and"].extend(v)
+                else:
+
+                    filters["$and"].append({k: v})
 
     for op in ("$and", "$or"):
         if op in filters:
