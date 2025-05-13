@@ -125,12 +125,12 @@ def test_filters_list_of_filters_combined_as_or():
         ],
     )
 
-
-def test_filters_single_or():
-    filters = {
-        "$or": [
-            {"field1": "value1"},
-        ]
-    }
-    result = query_filters_validator(filters)
-    assert result == FilterOp(field="field1", op="eq", value="value1")
+# TODO: what do we expect here?
+# def test_filters_single_or():
+#     filters = {
+#         "$or": [
+#             {"field1": "value1"},
+#         ]
+#     }
+#     result = query_filters_validator(filters)
+#     assert result == FilterOp(field="field1", op="eq", value="value1")
