@@ -9,6 +9,16 @@ from typing import NamedTuple, Any, Dict, List, Union, Optional
 from ckan.plugins.toolkit import Invalid
 
 
+OR = "$or"
+AND = "$and"
+
+# TODO: allow plugins to extend these
+FILTER_OPERATORS = [OR, AND]
+
+# Nested operators of these types will be merged
+COMBINE_OPERATORS = [OR, AND]
+
+
 class FilterOp(NamedTuple):
     op: str
     field: Optional[str]
@@ -35,9 +45,6 @@ class FilterOp(NamedTuple):
         )
 
 
-FILTER_OPERATORS = ["$or", "$and"]
-
-
 def _is_dict_or_list_of_dicts(value: Any) -> bool:
     return isinstance(value, dict) or _is_list_of_dicts(value)
 
@@ -55,7 +62,56 @@ def _check_filter_operator(key: str, value: Any) -> None:
         raise Invalid("Filter operations must be defined as a list of dicts")
 
 
-def _process_filter_operator_members(value: Any) -> List[FilterOp]:
+def _combine_filter_operator_members(
+    value: Any, parent_operator: str
+) -> List[FilterOp]:
+    """
+    Combine child operator members of the same type, e.g.:
+
+    {
+        "$and": [
+            {"field1": "value1"},
+            {
+                "$and": [
+                    {"field2": "value2"},
+                    {"$and": [
+                        {"field3": "value3"},
+                        {"field4": "value4"}
+                        ]
+                    },
+                ]
+            },
+        ]
+    }
+
+    will generate a single $and filter:
+
+        FilterOp(
+            field=None,
+            op="$and",
+            value=[
+                FilterOp(field="field1", op="eq", value="value1"),
+                FilterOp(field="field2", op="eq", value="value2"),
+                FilterOp(field="field3", op="eq", value="value3"),
+                FilterOp(field="field4", op="eq", value="value4"),
+            ],
+        )
+    """
+    child_filters = _process_filter_operator_members(value, parent_operator)
+
+    combined_filters = []
+    for filter_ in child_filters:
+        if filter_.op == parent_operator and parent_operator in COMBINE_OPERATORS:
+            combined_filters.extend(filter_.value)
+        else:
+            combined_filters.append(filter_)
+
+    return combined_filters
+
+
+def _process_filter_operator_members(
+    value: Any, parent_operator: str
+) -> List[FilterOp]:
 
     if not isinstance(value, list):
         raise Invalid("Filter operations must contain lists of filters")
@@ -77,7 +133,7 @@ def _process_filter_operator_members(value: Any) -> List[FilterOp]:
                 FilterOp(
                     op=key,
                     field=None,
-                    value=_process_filter_operator_members(item[key]),
+                    value=_combine_filter_operator_members(item[key], key),
                 )
             )
         else:
@@ -103,7 +159,7 @@ def _process_field_operator(field_name: str, value: Any) -> FilterOp:
             for k, v in value.items():
                 child_ops.append(_process_field_operator(field_name, {k: v}))
 
-            return FilterOp(op="$and", field=None, value=child_ops)
+            return FilterOp(op=AND, field=None, value=child_ops)
 
         else:
             # Just return the filter
@@ -129,7 +185,7 @@ def _process_field_operator(field_name: str, value: Any) -> FilterOp:
 
         members.append(FilterOp(field=field_name, op="in", value=non_field_ops))
 
-        return FilterOp(op="$or", field=None, value=members)
+        return FilterOp(op=OR, field=None, value=members)
 
 
 def query_filters_validator(
@@ -148,7 +204,9 @@ def query_filters_validator(
     if isinstance(input_value, list):
 
         filters = FilterOp(
-            op="$or", field=None, value=_process_filter_operator_members(input_value)
+            op=OR,
+            field=None,
+            value=_combine_filter_operator_members(input_value, OR),
         )
 
     else:
@@ -158,15 +216,15 @@ def query_filters_validator(
 
                 _check_filter_operator(key, value)
 
-                if key == "$and":
+                if key == AND:
                     # Just add child filters to the root $and
-                    child_filters.extend(_process_filter_operator_members(value))
+                    child_filters.extend(_combine_filter_operator_members(value, AND))
                 else:
                     child_filters.append(
                         FilterOp(
                             op=key,
                             field=None,
-                            value=_process_filter_operator_members(value),
+                            value=_combine_filter_operator_members(value, key),
                         )
                     )
 
@@ -174,7 +232,7 @@ def query_filters_validator(
                 child_filters.append(_process_field_operator(key, value))
 
         if len(child_filters) > 1:
-            filters = FilterOp(op="$and", field=None, value=child_filters)
+            filters = FilterOp(op=AND, field=None, value=child_filters)
         elif len(child_filters) == 1:
             filters = child_filters[0]
 
