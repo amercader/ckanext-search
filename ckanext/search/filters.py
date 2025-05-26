@@ -246,7 +246,9 @@ def query_filters_validator(
 
     filters: Optional[FilterOp] = None
     errors = []
+
     if isinstance(input_value, list):
+        # Filters provided as a list of dicts
 
         child_ops, errors = _combine_filter_operator_members(input_value, OR)
 
@@ -258,35 +260,32 @@ def query_filters_validator(
             )
 
     else:
+        # Filters provided as a dict
+
         child_filters = []
+
         for key, value in input_value.items():
             if key.startswith("$") and not key.startswith("$$"):
+                # Handle Filter Operators (e.g. $or, $and)
 
                 op_errors = _check_filter_operator(key, value)
                 if op_errors:
                     errors.append(op_errors)
                     continue
 
-                if key == AND:
-                    # Just add child filters to the root $and
-                    child_ops, child_errors = _combine_filter_operator_members(
-                        value, AND
-                    )
+                child_ops, child_errors = _combine_filter_operator_members(
+                    value, key
+                )
 
-                    if child_errors:
-                        errors.extend(child_errors)
-                        continue
-                    elif child_ops:
+                if child_errors:
+                    errors.extend(child_errors)
+                    continue
+                elif child_ops:
+
+                    if key == AND:
+                        # Just add child filters to the root $and
                         child_filters.extend(child_ops)
-                else:
-
-                    child_ops, child_errors = _combine_filter_operator_members(
-                        value, key
-                    )
-                    if child_errors:
-                        errors.extend(child_errors)
-                        continue
-                    elif child_ops:
+                    else:
                         child_filters.append(
                             FilterOp(
                                 op=key,
@@ -296,7 +295,7 @@ def query_filters_validator(
                         )
 
             else:
-
+                # Handle Field Operators (e.g. {"field": "value"})
                 field_op, field_errors = _process_field_operator(key, value)
 
                 if not field_errors:
