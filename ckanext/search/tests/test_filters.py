@@ -1,6 +1,6 @@
 import pytest
 
-from ckan.plugins.toolkit import Invalid
+from ckan.plugins.toolkit import ValidationError
 from ckanext.search.filters import query_filters_validator, FilterOp
 
 
@@ -15,19 +15,25 @@ def test_filters_no_value(filters):
 )
 def test_filters_invalid_format(filters):
 
-    with pytest.raises(Invalid) as e:
+    with pytest.raises(ValidationError) as e:
         query_filters_validator(filters)
 
-    assert e.value.error == "Filters must be defined as a dict or a list of dicts"
+    assert (
+        e.value.error_dict["filters"][0]
+        == "Filters must be defined as a dict or a list of dicts"
+    )
 
 
 def test_filters_unknown_top_operators():
 
     filters = {"$maybe": [{"field1": "value1"}]}
-    with pytest.raises(Invalid) as e:
+    with pytest.raises(ValidationError) as e:
         query_filters_validator(filters)
 
-    assert e.value.error == "Unknown operators (must be one of $or, $and): $maybe"
+    assert (
+        e.value.error_dict["filters"][0]
+        == "Unknown operators (must be one of $or, $and): $maybe"
+    )
 
 
 def test_filters_dollar_fields_escaped():
@@ -46,10 +52,13 @@ def test_filters_top_operators_invalid_format(or_filters):
         "field1": "value1",
         "$or": or_filters,
     }
-    with pytest.raises(Invalid) as e:
+    with pytest.raises(ValidationError) as e:
         query_filters_validator(filters)
 
-    assert e.value.error == "Filter operations must be defined as a list of dicts"
+    assert (
+        e.value.error_dict["filters"][0]
+        == f"Filter operations must be defined as a list of dicts: {or_filters}"
+    )
 
 
 def test_filters_single_field():
@@ -213,10 +222,13 @@ def test_filters_multiple_fields_with_wrong_and_filter_op():
         "$and": "wrong_filter",
     }
 
-    with pytest.raises(Invalid) as e:
+    with pytest.raises(ValidationError) as e:
         query_filters_validator(filters)
 
-    assert e.value.error == "Filter operations must be defined as a list of dicts"
+    assert (
+        e.value.error_dict["filters"][0]
+        == "Filter operations must be defined as a list of dicts: wrong_filter"
+    )
 
 
 def test_filters_list_of_filters_combined_as_or():
@@ -307,10 +319,10 @@ def test_filters_list_of_filters_with_or_operator():
 
 # TODO: what do we expect here?
 # def test_filters_single_or():
-#     filters = {
-#         "$or": [
-#             {"field1": "value1"},
-#         ]
-#     }
-#     result = query_filters_validator(filters)
-#     assert result == FilterOp(field="field1", op="eq", value="value1")
+#    filters = {
+#        "$or": [
+#            {"field1": "value1"},
+#        ]
+#    }
+#    result = query_filters_validator(filters)
+#    assert result == FilterOp(field="field1", op="eq", value="value1")
