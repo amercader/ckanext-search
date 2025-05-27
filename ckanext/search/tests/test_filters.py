@@ -60,6 +60,22 @@ def test_filters_dollar_fields_escaped():
     assert result and result.field == "$some_field" and result.op == "eq"
 
 
+def test_filters_dollar_fields_in_operators(default_search_schema):
+    search_schema = default_search_schema.copy()
+    search_schema["fields"].append({"name": "$some_field"})
+
+    filters = {"$or": [{"$$some_field": {"gt": 100}}, {"field1": "value1"}]}
+    result = query_filters_validator(filters, search_schema)
+    assert result == FilterOp(
+        field=None,
+        op="$or",
+        value=[
+            FilterOp(field="$some_field", op="gt", value=100),
+            FilterOp(field="field1", op="eq", value="value1"),
+        ],
+    )
+
+
 @pytest.mark.parametrize(
     "or_filters", [1, "a", "a,b", '{"a": "b"}', ["a"], ["a", "b"], [{"a": "b"}, "c"]]
 )
@@ -309,6 +325,80 @@ def test_filters_test_nested_operators_combined(default_search_schema):
     )
 
 
+def test_filters_nested_operators(default_search_schema):
+    filters = {
+        "$or": [
+            {"field1": "value1"},
+            {
+                "$and": [
+                    {"field2": {"gte": 10, "lte": 20}},
+                    {
+                        "$or": [
+                            {"field3": ["a", "b", "c"]},
+                            {"$and": [{"field4": {"lt": 5}}, {"field5": "value5"}]},
+                        ]
+                    },
+                ]
+            },
+        ]
+    }
+    result = query_filters_validator(filters, default_search_schema)
+    assert result == FilterOp(
+        field=None,
+        op="$or",
+        value=[
+            FilterOp(field="field1", op="eq", value="value1"),
+            FilterOp(
+                field=None,
+                op="$and",
+                value=[
+                    FilterOp(field="field2", op="gte", value=10),
+                    FilterOp(field="field2", op="lte", value=20),
+                    FilterOp(
+                        field=None,
+                        op="$or",
+                        value=[
+                            FilterOp(field="field3", op="in", value=["a", "b", "c"]),
+                            FilterOp(
+                                field=None,
+                                op="$and",
+                                value=[
+                                    FilterOp(field="field4", op="lt", value=5),
+                                    FilterOp(field="field5", op="eq", value="value5"),
+                                ],
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+        ],
+    )
+
+
+def test_filters_multiple_top_level_operators(default_search_schema):
+    filters = {
+        "$or": [{"field1": "value1"}, {"field2": "value2"}],
+        "$and": [{"field3": "value3"}, {"field4": "value4"}],
+    }
+    result = query_filters_validator(filters, default_search_schema)
+    assert result == FilterOp(
+        field=None,
+        op="$and",
+        value=[
+            FilterOp(
+                field=None,
+                op="$or",
+                value=[
+                    FilterOp(field="field1", op="eq", value="value1"),
+                    FilterOp(field="field2", op="eq", value="value2"),
+                ],
+            ),
+            FilterOp(field="field3", op="eq", value="value3"),
+            FilterOp(field="field4", op="eq", value="value4"),
+        ],
+    )
+
+
 def test_filters_list_of_filters_with_or_operator(default_search_schema):
     filters = [
         {"field1": "value1"},
@@ -386,14 +476,26 @@ def test_filters_different_errors(default_search_schema):
     assert e.value.error_dict["filters"] == [
         "Unknown field: random_field1",
         "Unknown field: random_field2",
-        'Filter operation members must be dictionaries: wrong_format',
+        "Filter operation members must be dictionaries: wrong_format",
     ]
 
 
 # TODO: what do we expect here?
-# def test_filters_single_or():
+# def test_filters_single_or(default_search_schema):
+#    """Test that a single item in an $or operator works correctly."""
 #    filters = {
 #        "$or": [
+#            {"field1": "value1"},
+#        ]
+#    }
+#    result = query_filters_validator(filters, default_search_schema)
+#    assert result == FilterOp(field="field1", op="eq", value="value1")
+#
+#
+# def test_filters_single_and(default_search_schema):
+#    """Test that a single item in an $and operator works correctly."""
+#    filters = {
+#        "$and": [
 #            {"field1": "value1"},
 #        ]
 #    }
