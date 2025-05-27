@@ -45,6 +45,17 @@ class FilterOp(NamedTuple):
         )
 
 
+def _validate_field_operator(field_name, operator, value, search_schema):
+
+    # Check field exists
+    field = [f for f in search_schema.get("fields", {}) if f["name"] == field_name]
+    if not field:
+        return [f"Unknown field: {field_name}"]
+
+    field = field[0]
+    pass
+
+
 def _is_dict_or_list_of_dicts(value: Any) -> bool:
     return isinstance(value, dict) or _is_list_of_dicts(value)
 
@@ -63,7 +74,7 @@ def _check_filter_operator(key: str, value: Any) -> Optional[str]:
 
 
 def _combine_filter_operator_members(
-    value: Any, parent_operator: str
+    value: Any, parent_operator: str, search_schema: dict
 ) -> tuple[Optional[List[FilterOp]], Optional[List[str]]]:
     """
     Combine child operator members of the same type, e.g.:
@@ -97,7 +108,9 @@ def _combine_filter_operator_members(
             ],
         )
     """
-    child_filters, errors = _process_filter_operator_members(value, parent_operator)
+    child_filters, errors = _process_filter_operator_members(
+        value, parent_operator, search_schema
+    )
 
     if errors:
         return None, errors
@@ -115,7 +128,7 @@ def _combine_filter_operator_members(
 
 
 def _process_filter_operator_members(
-    value: Any, parent_operator: str
+    value: Any, parent_operator: str, search_schema: dict
 ) -> tuple[Optional[List[FilterOp]], Optional[List[str]]]:
 
     if not isinstance(value, list):
@@ -123,58 +136,72 @@ def _process_filter_operator_members(
 
     out: List[FilterOp] = []
     errors = []
+
     for item in value:
+        item_errors = []
         if not isinstance(item, dict):
-            errors.append(f"Filter operation members must be dictionaries: {item}")
+            item_errors.append(f"Filter operation members must be dictionaries: {item}")
 
         elif len(item.keys()) > 1:
 
-            errors.append(f"Filter operations can only have one key: {item}")
+            item_errors.append(f"Filter operations can only have one key: {item}")
 
-        if errors:
-            return None, errors
-
-        key = list(item.keys())[0]
-
-        if key.startswith("$") and not key.startswith("$$"):
-            op_errors = _check_filter_operator(key, value)
-            if op_errors:
-                errors.append(op_errors)
-                continue
-
-            child_ops, child_errors = _combine_filter_operator_members(item[key], key)
-
-            if child_errors:
-                errors.extend(child_errors)
-                continue
-
-            out.append(
-                FilterOp(
-                    op=key,
-                    field=None,
-                    value=child_ops,
-                )
-            )
+        if item_errors:
+            errors.extend(item_errors)
         else:
-            field_op, field_errors = _process_field_operator(key, item[key])
-            if field_errors:
-                errors.extend(field_errors)
-            elif field_op:
-                out.append(field_op)
+            key = list(item.keys())[0]
+            if key.startswith("$") and not key.startswith("$$"):
+                op_errors = _check_filter_operator(key, value)
+                if op_errors:
+                    errors.append(op_errors)
+                    continue
+
+                child_ops, child_errors = _combine_filter_operator_members(
+                    item[key], key, search_schema
+                )
+
+                if child_errors:
+                    errors.extend(child_errors)
+                    continue
+
+                out.append(
+                    FilterOp(
+                        op=key,
+                        field=None,
+                        value=child_ops,
+                    )
+                )
+            else:
+                field_op, field_errors = _process_field_operator(
+                    key, item[key], search_schema
+                )
+
+                if field_errors:
+                    errors.extend(field_errors)
+                elif field_op:
+                    out.append(field_op)
 
     return out, errors
 
 
+def _check_field_operator(field_name, op, value, search_schema):
+
+    errors = _validate_field_operator(field_name, op, value, search_schema)
+    if errors:
+        return None, errors
+    else:
+        return FilterOp(field=field_name, op=op, value=value), None
+
+
 def _process_field_operator(
-    field_name: str, value: Any
+    field_name: str, value: Any, search_schema: dict
 ) -> tuple[Optional[FilterOp], Optional[List[str]]]:
 
     if field_name.startswith("$$"):
         field_name = field_name[1:]
 
     if not isinstance(value, (dict, list)):
-
-        return FilterOp(field=field_name, op="eq", value=value), None
+        return _check_field_operator(field_name, "eq", value, search_schema)
 
     elif isinstance(value, dict):
 
@@ -183,7 +210,9 @@ def _process_field_operator(
             child_ops = []
             errors = []
             for k, v in value.items():
-                field_op, field_errors = _process_field_operator(field_name, {k: v})
+                field_op, field_errors = _process_field_operator(
+                    field_name, {k: v}, search_schema
+                )
                 if field_errors:
                     errors.extend(field_errors)
                 else:
@@ -196,12 +225,10 @@ def _process_field_operator(
 
         else:
             # Just return the filter
-            # TODO: check op and value format
-            errors = []
 
             op = list(value.keys())[0]
 
-            return FilterOp(field=field_name, op=op, value=value[op]), errors
+            return _check_field_operator(field_name, op, value[op], search_schema)
 
     elif isinstance(value, list):
         # TODO: fail if lists
@@ -217,9 +244,12 @@ def _process_field_operator(
 
         for field_op in field_ops:
 
-            field_op, field_errors = _process_field_operator(field_name, field_op)
+            field_op, field_errors = _process_field_operator(
+                field_name, field_op, search_schema
+            )
             if field_errors:
                 errors.extend(field_errors)
+                continue
             else:
                 members.append(field_op)
 
@@ -233,6 +263,7 @@ def _process_field_operator(
 
 def query_filters_validator(
     input_value: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]],
+    search_schema: dict,
 ) -> Optional[FilterOp]:
 
     if not input_value:
@@ -250,7 +281,9 @@ def query_filters_validator(
     if isinstance(input_value, list):
         # Filters provided as a list of dicts
 
-        child_ops, errors = _combine_filter_operator_members(input_value, OR)
+        child_ops, errors = _combine_filter_operator_members(
+            input_value, OR, search_schema
+        )
 
         if child_ops:
             filters = FilterOp(
@@ -274,7 +307,7 @@ def query_filters_validator(
                     continue
 
                 child_ops, child_errors = _combine_filter_operator_members(
-                    value, key
+                    value, key, search_schema
                 )
 
                 if child_errors:
@@ -296,9 +329,13 @@ def query_filters_validator(
 
             else:
                 # Handle Field Operators (e.g. {"field": "value"})
-                field_op, field_errors = _process_field_operator(key, value)
+                field_op, field_errors = _process_field_operator(
+                    key, value, search_schema
+                )
 
-                if not field_errors:
+                if field_errors:
+                    errors.extend(field_errors)
+                else:
                     child_filters.append(field_op)
 
         if not errors and len(child_filters) > 1:

@@ -4,19 +4,34 @@ from ckan.plugins.toolkit import ValidationError
 from ckanext.search.filters import query_filters_validator, FilterOp
 
 
-@pytest.mark.parametrize("filters", ["", None, {}, []])
-def test_filters_no_value(filters):
+@pytest.fixture
+def default_search_schema():
+    return {
+        "fields": [
+            {"name": "field1"},
+            {"name": "field2"},
+            {"name": "field3"},
+            {"name": "field4"},
+            {"name": "field5"},
+            {"name": "field6"},
+            {"name": "field7"},
+        ]
+    }
 
-    assert query_filters_validator(filters) is None
+
+@pytest.mark.parametrize("filters", ["", None, {}, []])
+def test_filters_no_value(filters, default_search_schema):
+
+    assert query_filters_validator(filters, default_search_schema) is None
 
 
 @pytest.mark.parametrize(
     "filters", [1, "a", "a,b", '{"a": "b"}', ["a"], ["a", "b"], [{"a": "b"}, "c"]]
 )
-def test_filters_invalid_format(filters):
+def test_filters_invalid_format(filters, default_search_schema):
 
     with pytest.raises(ValidationError) as e:
-        query_filters_validator(filters)
+        query_filters_validator(filters, default_search_schema)
 
     assert (
         e.value.error_dict["filters"][0]
@@ -24,11 +39,11 @@ def test_filters_invalid_format(filters):
     )
 
 
-def test_filters_unknown_top_operators():
+def test_filters_unknown_top_operators(default_search_schema):
 
     filters = {"$maybe": [{"field1": "value1"}]}
     with pytest.raises(ValidationError) as e:
-        query_filters_validator(filters)
+        query_filters_validator(filters, default_search_schema)
 
     assert (
         e.value.error_dict["filters"][0]
@@ -39,21 +54,22 @@ def test_filters_unknown_top_operators():
 def test_filters_dollar_fields_escaped():
 
     filters = {"$$some_field": "some_value"}
+    search_schema = {"fields": [{"name": "$some_field"}]}
 
-    result = query_filters_validator(filters)
+    result = query_filters_validator(filters, search_schema)
     assert result and result.field == "$some_field" and result.op == "eq"
 
 
 @pytest.mark.parametrize(
     "or_filters", [1, "a", "a,b", '{"a": "b"}', ["a"], ["a", "b"], [{"a": "b"}, "c"]]
 )
-def test_filters_top_operators_invalid_format(or_filters):
+def test_filters_top_operators_invalid_format(or_filters, default_search_schema):
     filters = {
         "field1": "value1",
         "$or": or_filters,
     }
     with pytest.raises(ValidationError) as e:
-        query_filters_validator(filters)
+        query_filters_validator(filters, default_search_schema)
 
     assert (
         e.value.error_dict["filters"][0]
@@ -61,43 +77,43 @@ def test_filters_top_operators_invalid_format(or_filters):
     )
 
 
-def test_filters_single_field():
+def test_filters_single_field(default_search_schema):
     filters = {
         "field1": {"gte": 100},
     }
-    result = query_filters_validator(filters)
+    result = query_filters_validator(filters, default_search_schema)
     assert result == FilterOp(field="field1", op="gte", value=100)
 
 
-def test_filters_single_field_shorthand():
+def test_filters_single_field_shorthand(default_search_schema):
     filters = {
         "field1": "value1",
     }
-    result = query_filters_validator(filters)
+    result = query_filters_validator(filters, default_search_schema)
     assert result == FilterOp(field="field1", op="eq", value="value1")
 
 
-def test_filters_single_field_in():
+def test_filters_single_field_in(default_search_schema):
     filters = {
         "field1": {"in": ["a", "b"]},
     }
-    result = query_filters_validator(filters)
+    result = query_filters_validator(filters, default_search_schema)
     assert result == FilterOp(field="field1", op="in", value=["a", "b"])
 
 
-def test_filters_single_field_in_shorthand():
+def test_filters_single_field_in_shorthand(default_search_schema):
     filters = {
         "field1": ["a", "b"],
     }
-    result = query_filters_validator(filters)
+    result = query_filters_validator(filters, default_search_schema)
     assert result == FilterOp(field="field1", op="in", value=["a", "b"])
 
 
-def test_filters_single_field_in_shorthand_with_field_operator():
+def test_filters_single_field_in_shorthand_with_field_operator(default_search_schema):
     filters = {
         "field1": [10, 20, {"gte": 50, "lte": 60}, 80, 100],
     }
-    result = query_filters_validator(filters)
+    result = query_filters_validator(filters, default_search_schema)
     assert result == FilterOp(
         field=None,
         op="$or",
@@ -115,12 +131,12 @@ def test_filters_single_field_in_shorthand_with_field_operator():
     )
 
 
-def test_filters_multiple_fields_combined_as_and():
+def test_filters_multiple_fields_combined_as_and(default_search_schema):
     filters = {
         "field1": "value1",
         "field2": "value2",
     }
-    result = query_filters_validator(filters)
+    result = query_filters_validator(filters, default_search_schema)
     assert result == FilterOp(
         field=None,
         op="$and",
@@ -131,7 +147,7 @@ def test_filters_multiple_fields_combined_as_and():
     )
 
 
-def test_filters_multiple_fields_with_and_filter_op():
+def test_filters_multiple_fields_with_and_filter_op(default_search_schema):
     filters = {
         "field1": "value1",
         "field2": "value2",
@@ -140,7 +156,7 @@ def test_filters_multiple_fields_with_and_filter_op():
             {"field4": "value4"},
         ],
     }
-    result = query_filters_validator(filters)
+    result = query_filters_validator(filters, default_search_schema)
     assert result == FilterOp(
         field=None,
         op="$and",
@@ -153,7 +169,7 @@ def test_filters_multiple_fields_with_and_filter_op():
     )
 
 
-def test_filters_multiple_fields_with_or_filter_op():
+def test_filters_multiple_fields_with_or_filter_op(default_search_schema):
     filters = {
         "field1": "value1",
         "field2": "value2",
@@ -162,7 +178,7 @@ def test_filters_multiple_fields_with_or_filter_op():
             {"field4": "value4"},
         ],
     }
-    result = query_filters_validator(filters)
+    result = query_filters_validator(filters, default_search_schema)
     assert result == FilterOp(
         field=None,
         op="$and",
@@ -181,7 +197,7 @@ def test_filters_multiple_fields_with_or_filter_op():
     )
 
 
-def test_filters_multiple_fields_with_different_filter_ops():
+def test_filters_multiple_fields_with_different_filter_ops(default_search_schema):
     filters = {
         "field1": "value1",
         "$and": [
@@ -194,7 +210,7 @@ def test_filters_multiple_fields_with_different_filter_ops():
             {"field6": "value6"},
         ],
     }
-    result = query_filters_validator(filters)
+    result = query_filters_validator(filters, default_search_schema)
     assert result == FilterOp(
         field=None,
         op="$and",
@@ -216,14 +232,14 @@ def test_filters_multiple_fields_with_different_filter_ops():
     )
 
 
-def test_filters_multiple_fields_with_wrong_and_filter_op():
+def test_filters_multiple_fields_with_wrong_and_filter_op(default_search_schema):
     filters = {
         "field1": "value1",
         "$and": "wrong_filter",
     }
 
     with pytest.raises(ValidationError) as e:
-        query_filters_validator(filters)
+        query_filters_validator(filters, default_search_schema)
 
     assert (
         e.value.error_dict["filters"][0]
@@ -231,12 +247,12 @@ def test_filters_multiple_fields_with_wrong_and_filter_op():
     )
 
 
-def test_filters_list_of_filters_combined_as_or():
+def test_filters_list_of_filters_combined_as_or(default_search_schema):
     filters = [
         {"field1": "value1"},
         {"field2": "value2"},
     ]
-    result = query_filters_validator(filters)
+    result = query_filters_validator(filters, default_search_schema)
     assert result == FilterOp(
         field=None,
         op="$or",
@@ -247,7 +263,7 @@ def test_filters_list_of_filters_combined_as_or():
     )
 
 
-def test_filters_test_nested_operators_combined():
+def test_filters_test_nested_operators_combined(default_search_schema):
 
     filters = {
         "field1": "value1",
@@ -270,7 +286,7 @@ def test_filters_test_nested_operators_combined():
             },
         ],
     }
-    result = query_filters_validator(filters)
+    result = query_filters_validator(filters, default_search_schema)
     assert result == FilterOp(
         field=None,
         op="$and",
@@ -293,7 +309,7 @@ def test_filters_test_nested_operators_combined():
     )
 
 
-def test_filters_list_of_filters_with_or_operator():
+def test_filters_list_of_filters_with_or_operator(default_search_schema):
     filters = [
         {"field1": "value1"},
         {"field2": "value2"},
@@ -304,7 +320,7 @@ def test_filters_list_of_filters_with_or_operator():
             ]
         },
     ]
-    result = query_filters_validator(filters)
+    result = query_filters_validator(filters, default_search_schema)
     assert result == FilterOp(
         field=None,
         op="$or",
@@ -317,6 +333,63 @@ def test_filters_list_of_filters_with_or_operator():
     )
 
 
+def test_filters_unknown_field_single_field(default_search_schema):
+    filters = {"random_field": {"eq": "value"}}
+    with pytest.raises(ValidationError) as e:
+        query_filters_validator(filters, default_search_schema)
+
+    assert e.value.error_dict["filters"][0] == "Unknown field: random_field"
+
+
+def test_filters_unknown_field_single_field_shorthand(default_search_schema):
+    filters = {"random_field": "value"}
+    with pytest.raises(ValidationError) as e:
+        query_filters_validator(filters, default_search_schema)
+
+    assert e.value.error_dict["filters"][0] == "Unknown field: random_field"
+
+
+def test_filters_unknown_field_filter_op(default_search_schema):
+    filters = {"$or": [{"field1": "value1"}, {"random_field": "value"}]}
+    with pytest.raises(ValidationError) as e:
+        query_filters_validator(filters, default_search_schema)
+
+    assert e.value.error_dict["filters"][0] == "Unknown field: random_field"
+
+
+def test_filters_unknown_field_multiple_filter_op(default_search_schema):
+    filters = {
+        "$or": [
+            {"random_field1": "value"},
+            {"$and": [{"random_field2": "value"}, {"field1": "value1"}]},
+        ]
+    }
+    with pytest.raises(ValidationError) as e:
+        query_filters_validator(filters, default_search_schema)
+
+    assert e.value.error_dict["filters"] == [
+        "Unknown field: random_field1",
+        "Unknown field: random_field2",
+    ]
+
+
+def test_filters_different_errors(default_search_schema):
+    filters = {
+        "$or": [
+            {"random_field1": "value"},
+            {"$and": [{"random_field2": "value"}, {"$or": ["wrong_format"]}]},
+        ]
+    }
+    with pytest.raises(ValidationError) as e:
+        query_filters_validator(filters, default_search_schema)
+
+    assert e.value.error_dict["filters"] == [
+        "Unknown field: random_field1",
+        "Unknown field: random_field2",
+        'Filter operation members must be dictionaries: wrong_format',
+    ]
+
+
 # TODO: what do we expect here?
 # def test_filters_single_or():
 #    filters = {
@@ -324,5 +397,5 @@ def test_filters_list_of_filters_with_or_operator():
 #            {"field1": "value1"},
 #        ]
 #    }
-#    result = query_filters_validator(filters)
+#    result = query_filters_validator(filters, default_search_schema)
 #    assert result == FilterOp(field="field1", op="eq", value="value1")
