@@ -146,6 +146,32 @@ def test_filters_single_field_in_shorthand_with_field_operator(default_search_sc
     )
 
 
+def test_filters_top_operators_one_key(default_search_schema):
+    filters = {
+        "$or": [
+            {"field1": "value1"},
+            {"field2": {"gte": 50, "lte": 60}, "field3": "value3"},
+        ]
+    }
+    result = query_filters_validator(filters, default_search_schema)
+    assert result == FilterOp(
+        field=None,
+        op="$or",
+        value=[
+            FilterOp(field="field1", op="eq", value="value1"),
+            FilterOp(
+                field=None,
+                op="$and",
+                value=[
+                    FilterOp(field="field2", op="gte", value=50),
+                    FilterOp(field="field2", op="lte", value=60),
+                    FilterOp(field="field3", op="eq", value="value3"),
+                ],
+            ),
+        ],
+    )
+
+
 def test_filters_multiple_fields_combined_as_and(default_search_schema):
     filters = {
         "field1": "value1",
@@ -479,7 +505,7 @@ def test_filters_different_errors(default_search_schema):
         "filters": [
             "Unknown field: random_field1",
             "Unknown field: random_field2",
-            "Filter operation members must be dictionaries: wrong_format",
+            "Filter operations must be defined as a list of dicts: ['wrong_format']",
         ]
     }
 

@@ -115,16 +115,23 @@ def _combine_filter_operator_members(
     if errors:
         return None, errors
     elif child_filters:
-        combined_filters = []
-        for filter_ in child_filters:
-            if filter_.op == parent_operator and parent_operator in COMBINE_OPERATORS:
-                combined_filters.extend(filter_.value)
-            else:
-                combined_filters.append(filter_)
 
-        return combined_filters, None
+        return _combine_filter_operations(child_filters, parent_operator), None
 
     return None, None
+
+
+def _combine_filter_operations(
+    filter_ops: List[FilterOp], parent_operator: str
+) -> List[FilterOp]:
+    combined_filters = []
+    for filter_ in filter_ops:
+        if filter_.op == parent_operator and parent_operator in COMBINE_OPERATORS:
+            combined_filters.extend(filter_.value)
+        else:
+            combined_filters.append(filter_)
+
+    return combined_filters
 
 
 def _process_filter_operator_members(
@@ -138,25 +145,22 @@ def _process_filter_operator_members(
     errors = []
 
     for item in value:
-        item_errors = []
         if not isinstance(item, dict):
-            item_errors.append(f"Filter operation members must be dictionaries: {item}")
+            errors.append(f"Filter operation members must be dictionaries: {item!r}")
+            continue
 
-        elif len(item.keys()) > 1:
+        # Process each key and combine with AND
+        child_ops = []
 
-            item_errors.append(f"Filter operations can only have one key: {item}")
-
-        if item_errors:
-            errors.extend(item_errors)
-        else:
-            key = list(item.keys())[0]
+        for key in item.keys():
             if key.startswith("$") and not key.startswith("$$"):
-                op_errors = _check_filter_operator(key, value)
+                # Handle operator key
+                op_errors = _check_filter_operator(key, item[key])
                 if op_errors:
                     errors.append(op_errors)
                     continue
 
-                child_ops, child_errors = _combine_filter_operator_members(
+                child_ops_for_key, child_errors = _combine_filter_operator_members(
                     item[key], key, search_schema
                 )
 
@@ -164,14 +168,15 @@ def _process_filter_operator_members(
                     errors.extend(child_errors)
                     continue
 
-                out.append(
+                child_ops.append(
                     FilterOp(
                         op=key,
                         field=None,
-                        value=child_ops,
+                        value=child_ops_for_key,
                     )
                 )
             else:
+                # Handle field key
                 field_op, field_errors = _process_field_operator(
                     key, item[key], search_schema
                 )
@@ -179,7 +184,16 @@ def _process_filter_operator_members(
                 if field_errors:
                     errors.extend(field_errors)
                 elif field_op:
-                    out.append(field_op)
+                    child_ops.append(field_op)
+
+        if len(child_ops) == 1:
+            out.append(child_ops[0])
+        else:
+            out.append(
+                FilterOp(
+                    field=None, op=AND, value=_combine_filter_operations(child_ops, AND)
+                )
+            )
 
     return out, errors
 
