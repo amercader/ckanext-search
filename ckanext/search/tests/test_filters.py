@@ -7,15 +7,15 @@ from ckanext.search.filters import query_filters_validator, FilterOp
 @pytest.fixture
 def default_search_schema():
     return {
-        "fields": [
-            {"name": "field1"},
-            {"name": "field2"},
-            {"name": "field3"},
-            {"name": "field4"},
-            {"name": "field5"},
-            {"name": "field6"},
-            {"name": "field7"},
-        ]
+        "fields": {
+            "field1": {},
+            "field2": {},
+            "field3": {},
+            "field4": {},
+            "field5": {},
+            "field6": {},
+            "field7": {},
+        }
     }
 
 
@@ -52,7 +52,7 @@ def test_filters_unknown_top_operators(default_search_schema):
 def test_filters_dollar_fields_escaped():
 
     filters = {"$$some_field": "some_value"}
-    search_schema = {"fields": [{"name": "$some_field"}]}
+    search_schema = {"fields": {"$some_field": {}}}
 
     result = query_filters_validator(filters, search_schema)
     assert result == FilterOp(field="$some_field", op="eq", value="some_value")
@@ -60,7 +60,7 @@ def test_filters_dollar_fields_escaped():
 
 def test_filters_dollar_fields_in_operators(default_search_schema):
     search_schema = default_search_schema.copy()
-    search_schema["fields"].append({"name": "$some_field"})
+    search_schema["fields"]["$some_field"] = {}
 
     filters = {"$or": [{"$$some_field": {"gt": 100}}, {"field1": "value1"}]}
     result = query_filters_validator(filters, search_schema)

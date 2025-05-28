@@ -47,13 +47,11 @@ class FilterOp(NamedTuple):
 
 def _validate_field_operator(field_name, operator, value, search_schema):
 
-    # Check field exists
-    field = [f for f in search_schema.get("fields", {}) if f["name"] == field_name]
-    if not field:
+    if field_name not in search_schema["fields"].keys():
         return [f"Unknown field: {field_name}"]
 
-    field = field[0]
-    pass
+
+# TODO: check value depending on operation and field type
 
 
 def _is_dict_or_list_of_dicts(value: Any) -> bool:

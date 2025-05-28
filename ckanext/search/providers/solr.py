@@ -214,9 +214,8 @@ class SolrSearchProvider(SingletonPlugin):
             "date": "pdate",
         }
 
-        for field in search_schema["fields"]:
+        for field_name, field in search_schema.get("fields", {}).items():
 
-            field_name = field.pop("name")
             field_type = field.pop("type")
             if admin_client.get_field(field_name):
                 log.info(
