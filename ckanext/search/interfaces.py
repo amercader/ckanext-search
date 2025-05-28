@@ -9,7 +9,7 @@ class SearchSchema(TypedDict, total=False):
     """Type definition for search schema"""
 
     version: int
-    fields: list[dict[str, Any]]  # field properties like type, repeating, etc.
+    fields: dict[str, Any]  # field properties like type, repeating, etc.
 
 
 class SearchResults(TypedDict, total=False):

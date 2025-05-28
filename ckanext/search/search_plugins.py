@@ -105,11 +105,11 @@ class SpatialSearch(SingletonPlugin):
         """Return spatial search schema fields."""
         return {
             "version": 1,
-            "fields": [
-                {"name": "spatial_geom", "type": "location_rpt"},
+            "fields": {
+                "spatial_geom": {"type": "location_rpt"},
                 # TODO: bbox field
-                # {"name": "spatial_bbox", "type": "string"},
-            ],
+                # "spatial_bbox": {"type": "string"},
+            },
         }
 
     def before_index(
