@@ -33,10 +33,9 @@ def test_filters_invalid_format(filters, default_search_schema):
     with pytest.raises(ValidationError) as e:
         query_filters_validator(filters, default_search_schema)
 
-    assert (
-        e.value.error_dict["filters"][0]
-        == "Filters must be defined as a dict or a list of dicts"
-    )
+    assert e.value.error_dict == {
+        "filters": ["Filters must be defined as a dict or a list of dicts"]
+    }
 
 
 def test_filters_unknown_top_operators(default_search_schema):
@@ -45,10 +44,9 @@ def test_filters_unknown_top_operators(default_search_schema):
     with pytest.raises(ValidationError) as e:
         query_filters_validator(filters, default_search_schema)
 
-    assert (
-        e.value.error_dict["filters"][0]
-        == "Unknown operators (must be one of $or, $and): $maybe"
-    )
+    assert e.value.error_dict == {
+        "filters": ["Unknown operators (must be one of $or, $and): $maybe"]
+    }
 
 
 def test_filters_dollar_fields_escaped():
@@ -57,7 +55,7 @@ def test_filters_dollar_fields_escaped():
     search_schema = {"fields": [{"name": "$some_field"}]}
 
     result = query_filters_validator(filters, search_schema)
-    assert result and result.field == "$some_field" and result.op == "eq"
+    assert result == FilterOp(field="$some_field", op="eq", value="some_value")
 
 
 def test_filters_dollar_fields_in_operators(default_search_schema):
@@ -87,10 +85,11 @@ def test_filters_top_operators_invalid_format(or_filters, default_search_schema)
     with pytest.raises(ValidationError) as e:
         query_filters_validator(filters, default_search_schema)
 
-    assert (
-        e.value.error_dict["filters"][0]
-        == f"Filter operations must be defined as a list of dicts: {or_filters}"
-    )
+    assert e.value.error_dict == {
+        "filters": [
+            f"Filter operations must be defined as a list of dicts: {or_filters}"
+        ]
+    }
 
 
 def test_filters_single_field(default_search_schema):
@@ -257,10 +256,11 @@ def test_filters_multiple_fields_with_wrong_and_filter_op(default_search_schema)
     with pytest.raises(ValidationError) as e:
         query_filters_validator(filters, default_search_schema)
 
-    assert (
-        e.value.error_dict["filters"][0]
-        == "Filter operations must be defined as a list of dicts: wrong_filter"
-    )
+    assert e.value.error_dict == {
+        "filters": [
+            "Filter operations must be defined as a list of dicts: wrong_filter"
+        ]
+    }
 
 
 def test_filters_list_of_filters_combined_as_or(default_search_schema):
@@ -428,7 +428,7 @@ def test_filters_unknown_field_single_field(default_search_schema):
     with pytest.raises(ValidationError) as e:
         query_filters_validator(filters, default_search_schema)
 
-    assert e.value.error_dict["filters"][0] == "Unknown field: random_field"
+    assert e.value.error_dict == {"filters": ["Unknown field: random_field"]}
 
 
 def test_filters_unknown_field_single_field_shorthand(default_search_schema):
@@ -436,7 +436,7 @@ def test_filters_unknown_field_single_field_shorthand(default_search_schema):
     with pytest.raises(ValidationError) as e:
         query_filters_validator(filters, default_search_schema)
 
-    assert e.value.error_dict["filters"][0] == "Unknown field: random_field"
+    assert e.value.error_dict == {"filters": ["Unknown field: random_field"]}
 
 
 def test_filters_unknown_field_filter_op(default_search_schema):
@@ -444,7 +444,7 @@ def test_filters_unknown_field_filter_op(default_search_schema):
     with pytest.raises(ValidationError) as e:
         query_filters_validator(filters, default_search_schema)
 
-    assert e.value.error_dict["filters"][0] == "Unknown field: random_field"
+    assert e.value.error_dict == {"filters": ["Unknown field: random_field"]}
 
 
 def test_filters_unknown_field_multiple_filter_op(default_search_schema):
@@ -457,10 +457,12 @@ def test_filters_unknown_field_multiple_filter_op(default_search_schema):
     with pytest.raises(ValidationError) as e:
         query_filters_validator(filters, default_search_schema)
 
-    assert e.value.error_dict["filters"] == [
-        "Unknown field: random_field1",
-        "Unknown field: random_field2",
-    ]
+    assert e.value.error_dict == {
+        "filters": [
+            "Unknown field: random_field1",
+            "Unknown field: random_field2",
+        ]
+    }
 
 
 def test_filters_different_errors(default_search_schema):
@@ -473,11 +475,13 @@ def test_filters_different_errors(default_search_schema):
     with pytest.raises(ValidationError) as e:
         query_filters_validator(filters, default_search_schema)
 
-    assert e.value.error_dict["filters"] == [
-        "Unknown field: random_field1",
-        "Unknown field: random_field2",
-        "Filter operation members must be dictionaries: wrong_format",
-    ]
+    assert e.value.error_dict == {
+        "filters": [
+            "Unknown field: random_field1",
+            "Unknown field: random_field2",
+            "Filter operation members must be dictionaries: wrong_format",
+        ]
+    }
 
 
 # TODO: what do we expect here?
