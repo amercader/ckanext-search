@@ -510,6 +510,110 @@ def test_filters_different_errors(default_search_schema):
     }
 
 
+def test_filters_max_nested_depth(default_search_schema):
+    filters = {
+        "$or": [
+            {
+                "$and": [
+                    {
+                        "$or": [
+                            {
+                                "$and": [
+                                    {
+                                        "$or": [
+                                            {
+                                                "$and": [
+                                                    {
+                                                        "$or": [
+                                                            {
+                                                                "$and": [
+                                                                    {
+                                                                        "$or": [
+                                                                            {"$and": []}
+                                                                        ]
+                                                                    }
+                                                                ]
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+    with pytest.raises(ValidationError) as e:
+        query_filters_validator(filters, default_search_schema)
+
+    assert e.value.error_dict == {
+        "filters": ["Maximum nesting depth for filter operations reached"]
+    }
+
+
+def test_filters_max_nested_depth_same_op(default_search_schema):
+    filters = {
+        "$and": [
+            {
+                "$and": [
+                    {
+                        "$and": [
+                            {
+                                "$and": [
+                                    {
+                                        "$and": [
+                                            {
+                                                "$and": [
+                                                    {
+                                                        "$and": [
+                                                            {
+                                                                "$and": [
+                                                                    {
+                                                                        "$and": [
+                                                                            {"$and": []}
+                                                                        ]
+                                                                    }
+                                                                ]
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+    with pytest.raises(ValidationError) as e:
+        query_filters_validator(filters, default_search_schema)
+
+    assert e.value.error_dict == {
+        "filters": ["Maximum nesting depth for filter operations reached"]
+    }
+
+
+def test_filters_depth_not_nested_depth(default_search_schema):
+    filters = {
+        "$or": [
+            {"$and": [{"$or": [{"$and": []}]}]},
+            {"$and": [{"$or": [{"$and": []}]}]},
+            {"$and": [{"$or": [{"$and": []}]}]},
+            {"$and": [{"$or": [{"$and": []}]}]},
+        ]
+    }
+
+    query_filters_validator(filters, default_search_schema)
+
 # TODO: what do we expect here?
 # def test_filters_single_or(default_search_schema):
 #    """Test that a single item in an $or operator works correctly."""

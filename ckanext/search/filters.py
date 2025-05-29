@@ -18,6 +18,9 @@ FILTER_OPERATORS = [OR, AND]
 # Nested operators of these types will be merged
 COMBINE_OPERATORS = [OR, AND]
 
+# How deeply nested filter operations can be
+MAX_FILTER_OPS_DEPTH = 10
+
 
 class FilterOp(NamedTuple):
     op: str
@@ -72,7 +75,7 @@ def _check_filter_operator(key: str, value: Any) -> Optional[str]:
 
 
 def _combine_filter_operator_members(
-    value: Any, parent_operator: str, search_schema: dict
+    value: Any, parent_operator: str, search_schema: dict, nesting_level: int
 ) -> tuple[Optional[List[FilterOp]], Optional[List[str]]]:
     """
     Combine child operator members of the same type, e.g.:
@@ -107,7 +110,7 @@ def _combine_filter_operator_members(
         )
     """
     child_filters, errors = _process_filter_operator_members(
-        value, parent_operator, search_schema
+        value, parent_operator, search_schema, nesting_level + 1
     )
 
     if errors:
@@ -133,8 +136,13 @@ def _combine_filter_operations(
 
 
 def _process_filter_operator_members(
-    value: Any, parent_operator: str, search_schema: dict
+    value: Any, parent_operator: str, search_schema: dict, nesting_level: int
 ) -> tuple[Optional[List[FilterOp]], Optional[List[str]]]:
+
+    if nesting_level >= MAX_FILTER_OPS_DEPTH:
+        raise ValidationError(
+            {"filters": ["Maximum nesting depth for filter operations reached"]}
+        )
 
     if not isinstance(value, list):
         return None, [f"Filter operations must contain lists of filters: {value}"]
@@ -159,7 +167,7 @@ def _process_filter_operator_members(
                     continue
 
                 child_ops_for_key, child_errors = _combine_filter_operator_members(
-                    item[key], key, search_schema
+                    item[key], key, search_schema, nesting_level
                 )
 
                 if child_errors:
@@ -294,7 +302,7 @@ def query_filters_validator(
         # Filters provided as a list of dicts
 
         child_ops, errors = _combine_filter_operator_members(
-            input_value, OR, search_schema
+            input_value, OR, search_schema, nesting_level=0
         )
 
         if child_ops:
@@ -319,7 +327,7 @@ def query_filters_validator(
                     continue
 
                 child_ops, child_errors = _combine_filter_operator_members(
-                    value, key, search_schema
+                    value, key, search_schema, nesting_level=0
                 )
 
                 if child_errors:
