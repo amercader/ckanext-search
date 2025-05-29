@@ -614,6 +614,132 @@ def test_filters_depth_not_nested_depth(default_search_schema):
 
     query_filters_validator(filters, default_search_schema)
 
+
+def test_filters_max_number_list_of_dicts():
+    filters = [{f"field{i}": f"value{i}"} for i in range(0, 100)]
+    search_schema = {"fields": {f"field{i}": {} for i in range(0, 100)}}
+
+    with pytest.raises(ValidationError) as e:
+        query_filters_validator(filters, search_schema)
+
+    assert e.value.error_dict == {
+        "filters": ["Maximum number of filter operation exceeded"]
+    }
+
+
+def test_filters_max_number_list_with_big_dict():
+    filters = [{f"field{i}": f"value{i}" for i in range(0, 200)}]
+    search_schema = {"fields": {f"field{i}": {} for i in range(0, 200)}}
+
+    with pytest.raises(ValidationError) as e:
+        query_filters_validator(filters, search_schema)
+
+    assert e.value.error_dict == {
+        "filters": ["Maximum number of filter operation exceeded"]
+    }
+
+
+def test_filters_max_number_keys_in_dict():
+    filters = {f"field{i}": f"value{i}" for i in range(0, 100)}
+    search_schema = {"fields": {f"field{i}": {} for i in range(0, 100)}}
+
+    with pytest.raises(ValidationError) as e:
+        query_filters_validator(filters, search_schema)
+
+    assert e.value.error_dict == {
+        "filters": ["Maximum number of filter operation exceeded"]
+    }
+
+
+def test_filters_max_number_keys_in_dict_nested():
+    sub_filters = {f"field{i}": f"value{i}" for i in range(0, 100)}
+    search_schema = {"fields": {f"field{i}": {} for i in range(0, 100)}}
+
+    filters = {
+        "$or": [
+            {"field1": "value1"},
+            sub_filters,
+        ]
+    }
+
+    with pytest.raises(ValidationError) as e:
+        query_filters_validator(filters, search_schema)
+
+    assert e.value.error_dict == {
+        "filters": ["Maximum number of filter operation exceeded"]
+    }
+
+
+def test_filters_max_number_nested(default_search_schema):
+    sub_filters = {
+        "$and": [
+            {"field1": "value1", "field2": "value2"},
+            {
+                "$or": [
+                    {"field3": "value3", "field4": "value4"},
+                    {"$and": [{"field5": "value5"}, {"field6": "value6"}]},
+                ]
+            },
+        ]
+    }
+
+    filters = {"$or": [sub_filters] * 10}
+
+    with pytest.raises(ValidationError) as e:
+        query_filters_validator(filters, default_search_schema)
+
+    assert e.value.error_dict == {
+        "filters": ["Maximum number of filter operation exceeded"]
+    }
+
+
+def test_filterop_count():
+    simple_filter = FilterOp(field="field1", op="eq", value="value1")
+    assert simple_filter.op_count() == 1
+
+    nested_filter = FilterOp(
+        field=None,
+        op="$and",
+        value=[
+            FilterOp(field="field1", op="eq", value="value1"),
+            FilterOp(field="field2", op="eq", value="value2"),
+        ],
+    )
+    assert nested_filter.op_count() == 3
+
+    complex_filter = FilterOp(
+        field=None,
+        op="$or",
+        value=[
+            FilterOp(field="field1", op="eq", value="value1"),
+            FilterOp(
+                field=None,
+                op="$and",
+                value=[
+                    FilterOp(field="field2", op="gte", value=10),
+                    FilterOp(field="field2", op="lte", value=20),
+                    FilterOp(
+                        field=None,
+                        op="$or",
+                        value=[
+                            FilterOp(field="field3", op="in", value=["a", "b", "c"]),
+                            FilterOp(
+                                field=None,
+                                op="$and",
+                                value=[
+                                    FilterOp(field="field4", op="lt", value=5),
+                                    FilterOp(field="field5", op="eq", value="value5"),
+                                ],
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+        ],
+    )
+    assert complex_filter.op_count() == 10
+
+
 # TODO: what do we expect here?
 # def test_filters_single_or(default_search_schema):
 #    """Test that a single item in an $or operator works correctly."""

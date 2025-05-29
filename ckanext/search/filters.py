@@ -21,11 +21,24 @@ COMBINE_OPERATORS = [OR, AND]
 # How deeply nested filter operations can be
 MAX_FILTER_OPS_DEPTH = 10
 
+# Maximum number of filter operations
+MAX_FILTER_OPS_NUM = 100
+
 
 class FilterOp(NamedTuple):
     op: str
     field: Optional[str]
     value: Any
+
+    def op_count(self) -> int:
+
+        count = 1  # Count this operation
+
+        if isinstance(self.value, list):
+            for item in self.value:
+                if isinstance(item, FilterOp):
+                    count += item.op_count()
+        return count
 
     def __repr__(self) -> str:
         if (
@@ -53,8 +66,7 @@ def _validate_field_operator(field_name, operator, value, search_schema):
     if field_name not in search_schema["fields"].keys():
         return [f"Unknown field: {field_name}"]
 
-
-# TODO: check value depending on operation and field type
+    # TODO: check value depending on operation and field type
 
 
 def _is_dict_or_list_of_dicts(value: Any) -> bool:
@@ -72,6 +84,16 @@ def _check_filter_operator(key: str, value: Any) -> Optional[str]:
     # Filter operator values must be lists of dicts
     if not _is_list_of_dicts(value):
         return f"Filter operations must be defined as a list of dicts: {value}"
+
+
+def _check_num_filter_ops(filter_ops: FilterOp | List[FilterOp]):
+    if isinstance(filter_ops, FilterOp):
+        filter_ops = [filter_ops]
+
+    if sum([f.op_count() for f in filter_ops]) >= MAX_FILTER_OPS_NUM:
+        raise ValidationError(
+            {"filters": ["Maximum number of filter operation exceeded"]}
+        )
 
 
 def _combine_filter_operator_members(
@@ -116,8 +138,10 @@ def _combine_filter_operator_members(
     if errors:
         return None, errors
     elif child_filters:
+        out = _combine_filter_operations(child_filters, parent_operator)
+        _check_num_filter_ops(out)
 
-        return _combine_filter_operations(child_filters, parent_operator), None
+        return out, None
 
     return None, None
 
@@ -136,7 +160,7 @@ def _combine_filter_operations(
 
 
 def _process_filter_operator_members(
-    value: Any, parent_operator: str, search_schema: dict, nesting_level: int
+    value: List[dict], parent_operator: str, search_schema: dict, nesting_level: int
 ) -> tuple[Optional[List[FilterOp]], Optional[List[str]]]:
 
     if nesting_level >= MAX_FILTER_OPS_DEPTH:
@@ -158,7 +182,13 @@ def _process_filter_operator_members(
         # Process each key and combine with AND
         child_ops = []
 
+        if len(item.keys()) >= MAX_FILTER_OPS_NUM:
+            raise ValidationError(
+                {"filters": ["Maximum number of filter operation exceeded"]}
+            )
+
         for key in item.keys():
+
             if key.startswith("$") and not key.startswith("$$"):
                 # Handle operator key
                 op_errors = _check_filter_operator(key, item[key])
@@ -241,7 +271,9 @@ def _process_field_operator(
             if errors:
                 return None, errors
             else:
-                return FilterOp(op=AND, field=None, value=child_ops), None
+                out = FilterOp(op=AND, field=None, value=child_ops)
+                _check_num_filter_ops(out)
+                return out, None
 
         else:
             # Just return the filter
@@ -278,7 +310,9 @@ def _process_field_operator(
         if errors:
             return None, errors
         else:
-            return FilterOp(op=OR, field=None, value=members), None
+            out = FilterOp(op=OR, field=None, value=members)
+            _check_num_filter_ops(out)
+            return out, None
 
 
 def query_filters_validator(
@@ -301,6 +335,11 @@ def query_filters_validator(
     if isinstance(input_value, list):
         # Filters provided as a list of dicts
 
+        if len(input_value) >= MAX_FILTER_OPS_NUM:
+            raise ValidationError(
+                {"filters": ["Maximum number of filter operation exceeded"]}
+            )
+
         child_ops, errors = _combine_filter_operator_members(
             input_value, OR, search_schema, nesting_level=0
         )
@@ -316,6 +355,11 @@ def query_filters_validator(
         # Filters provided as a dict
 
         child_filters = []
+
+        if len(input_value.keys()) >= MAX_FILTER_OPS_NUM:
+            raise ValidationError(
+                {"filters": ["Maximum number of filter operation exceeded"]}
+            )
 
         for key, value in input_value.items():
             if key.startswith("$") and not key.startswith("$$"):
