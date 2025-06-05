@@ -13,6 +13,7 @@ from ckan.plugins.toolkit import (
 from ckan.types import Context, DataDict
 from ckanext.search.interfaces import ISearchProvider, ISearchFeature
 from ckanext.search.logic.schema import default_search_query_schema
+from ckanext.search.filters import FilterOp
 
 
 def _get_permission_labels(context: Context) -> list[str] | None:
@@ -45,18 +46,13 @@ def search(context: Context, data_dict: DataDict):
         additional_params_schema.update(plugin.search_query_schema())
 
     # Any fields not in the default schema are moved to additional_params
-    query_dict = {
-        "q": "",
-        "filters": {},
-        "sort": "",
-        "start": "",
-        "limit": "",
-        "lang": "",
-    }
+    default_query_fields = schema.keys()
+
+    query_dict = {}
     additional_params = {}
 
     for param in data_dict.keys():
-        if param in schema:
+        if param in default_query_fields:
             query_dict[param] = data_dict[param]
         else:
             additional_params[param] = data_dict[param]
@@ -77,13 +73,32 @@ def search(context: Context, data_dict: DataDict):
         raise ValidationError({"message": f"Unknown parameters: {unknown_params}"})
 
     query_dict["additional_params"] = additional_params
+
+    # Make sure all default query params are present
+    query_dict.update({k: None for k in default_query_fields if k not in query_dict})
+
     # Allow search extensions to modify the query params
     for plugin in PluginImplementations(ISearchFeature):
         plugin.before_query(query_dict)
 
     # Permission labels
     if labels := _get_permission_labels(context):
-        query_dict["filters"]["permission_labels"] = labels
+        perm_labels_filter_op = FilterOp(
+            field="permission_labels", op="in", value=labels
+        )
+
+        if filter_op := query_dict["filters"]:
+            if filter_op.op == "$and":
+                # Add the filter to the existing AND filters
+                filter_op.value.append(perm_labels_filter_op)
+            else:
+                # Wrap existing filters and the perms one in an AND operation
+                query_dict["filters"] = FilterOp(
+                    field=None, op="$and", value=[filter_op, perm_labels_filter_op]
+                )
+            pass
+        else:
+            query_dict["filters"] = perm_labels_filter_op
 
     search_backend = config["ckan.search.search_backend"]
     result = {}

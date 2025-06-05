@@ -1,6 +1,39 @@
+from typing import Any
+
 from ckan.plugins.toolkit import validator_args
 
-from ckan.types import Schema, Validator, ValidatorFactory
+from ckan.types import (
+    Schema,
+    Validator,
+    ValidatorFactory,
+    FlattenKey,
+    FlattenDataDict,
+    FlattenErrorDict,
+    Context,
+)
+
+from ckan.plugins.toolkit import ValidationError
+from ckanext.search.filters import parse_query_filters
+from ckanext.search.schema import get_search_schema
+
+
+def query_filters_validator(search_schema) -> Validator:
+
+    def callable(
+        key: FlattenKey,
+        data: FlattenDataDict,
+        errors: FlattenErrorDict,
+        context: Context,
+    ) -> Any:
+
+        value = data.get(key)
+
+        try:
+            data[key] = parse_query_filters(value, search_schema)
+        except ValidationError as e:
+            errors[key] = e.error_dict["filters"]
+
+    return callable
 
 
 @validator_args
@@ -28,6 +61,10 @@ def default_search_query_schema(
         "sort": [ignore_missing, json_list_or_string],
         # TODO: index value based ordering
         "start": [ignore_missing, ignore_empty, natural_number_validator],
-        "filters": [ignore_missing, convert_to_json_if_string],
+        "filters": [
+            ignore_missing,
+            convert_to_json_if_string,
+            query_filters_validator(get_search_schema()),
+        ],
         "lang": [ignore_missing],
     }

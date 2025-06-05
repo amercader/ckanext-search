@@ -76,18 +76,22 @@ DEFAULT_ORGANIZATION_SEARCH_SCHEMA: SearchSchema = {
 }
 
 
+def get_search_schema() -> SearchSchema:
+    search_schemas = [
+        DEFAULT_DATASET_SEARCH_SCHEMA,
+        DEFAULT_ORGANIZATION_SEARCH_SCHEMA,
+    ]
+
+    return merge_search_schemas(search_schemas)
+
+
 def init_schema(provider_id: str | None = None):
 
     # TODO: combine different entities, schemas provided by extensions
 
     # TODO: validate with navl
 
-    search_schemas = [
-        DEFAULT_DATASET_SEARCH_SCHEMA,
-        DEFAULT_ORGANIZATION_SEARCH_SCHEMA,
-    ]
-
-    combined_search_schema = merge_search_schemas(search_schemas)
+    combined_search_schema = get_search_schema()
 
     provider_ids = []
     # Search providers set things up first

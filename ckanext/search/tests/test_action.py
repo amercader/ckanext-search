@@ -7,9 +7,12 @@ from ckan.tests import helpers
 
 from ckanext.search.interfaces import ISearchFeature, ISearchProvider
 
+from ckanext.search.filters import FilterOp
+
+
 pytestmark = [
     pytest.mark.usefixtures("with_plugins"),
-    pytest.mark.ckan_config("ckan.search.search_backend", "test-provider")
+    pytest.mark.ckan_config("ckan.search.search_backend", "test-provider"),
 ]
 
 
@@ -81,7 +84,9 @@ def test_standard_params(mock_search_plugins):
     assert query_params["limit"] == 10
     assert query_params["start"] == 10
     assert query_params["sort"] == ["title asc"]
-    assert query_params["filters"] == {"entity_type": "dataset"}
+    assert query_params["filters"] == FilterOp(
+        field="entity_type", op="eq", value="dataset"
+    )
 
 
 def test_standard_params_are_converted(mock_search_plugins):
@@ -99,7 +104,9 @@ def test_standard_params_are_converted(mock_search_plugins):
     assert query_params["limit"] == 10
     assert query_params["start"] == 10
     assert query_params["sort"] == ["title asc"]
-    assert query_params["filters"] == {"entity_type": "dataset"}
+    assert query_params["filters"] == FilterOp(
+        field="entity_type", op="eq", value="dataset"
+    )
 
 
 def test_standard_params_are_validated(mock_search_plugins):
@@ -116,7 +123,10 @@ def test_standard_params_are_validated(mock_search_plugins):
 
     assert exc_info.value.error_dict["limit"][0] == "Invalid integer"
     assert exc_info.value.error_dict["start"][0] == "Invalid integer"
-    assert exc_info.value.error_dict["filters"][0] == "Could not parse as valid JSON"
+    assert (
+        exc_info.value.error_dict["filters"][0]
+        == "Filters must be defined as a dict or a list of dicts"
+    )
     # TODO: use a better validator for lists for sort
     # assert exc_info.value.error_dict["sort"][0] == "Could not parse as valid JSON"
 
