@@ -315,7 +315,7 @@ def _process_field_operator(
             return out, None
 
 
-def query_filters_validator(
+def parse_query_filters(
     input_value: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]],
     search_schema: dict,
 ) -> Optional[FilterOp]:

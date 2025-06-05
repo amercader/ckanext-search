@@ -1,7 +1,7 @@
 import pytest
 
 from ckan.plugins.toolkit import ValidationError
-from ckanext.search.filters import query_filters_validator, FilterOp
+from ckanext.search.filters import parse_query_filters, FilterOp
 
 
 @pytest.fixture
@@ -22,7 +22,7 @@ def default_search_schema():
 @pytest.mark.parametrize("filters", ["", None, {}, []])
 def test_filters_no_value(filters, default_search_schema):
 
-    assert query_filters_validator(filters, default_search_schema) is None
+    assert parse_query_filters(filters, default_search_schema) is None
 
 
 @pytest.mark.parametrize(
@@ -31,7 +31,7 @@ def test_filters_no_value(filters, default_search_schema):
 def test_filters_invalid_format(filters, default_search_schema):
 
     with pytest.raises(ValidationError) as e:
-        query_filters_validator(filters, default_search_schema)
+        parse_query_filters(filters, default_search_schema)
 
     assert e.value.error_dict == {
         "filters": ["Filters must be defined as a dict or a list of dicts"]
@@ -42,7 +42,7 @@ def test_filters_unknown_top_operators(default_search_schema):
 
     filters = {"$maybe": [{"field1": "value1"}]}
     with pytest.raises(ValidationError) as e:
-        query_filters_validator(filters, default_search_schema)
+        parse_query_filters(filters, default_search_schema)
 
     assert e.value.error_dict == {
         "filters": ["Unknown operators (must be one of $or, $and): $maybe"]
@@ -54,7 +54,7 @@ def test_filters_dollar_fields_escaped():
     filters = {"$$some_field": "some_value"}
     search_schema = {"fields": {"$some_field": {}}}
 
-    result = query_filters_validator(filters, search_schema)
+    result = parse_query_filters(filters, search_schema)
     assert result == FilterOp(field="$some_field", op="eq", value="some_value")
 
 
@@ -63,7 +63,7 @@ def test_filters_dollar_fields_in_operators(default_search_schema):
     search_schema["fields"]["$some_field"] = {}
 
     filters = {"$or": [{"$$some_field": {"gt": 100}}, {"field1": "value1"}]}
-    result = query_filters_validator(filters, search_schema)
+    result = parse_query_filters(filters, search_schema)
     assert result == FilterOp(
         field=None,
         op="$or",
@@ -83,7 +83,7 @@ def test_filters_top_operators_invalid_format(or_filters, default_search_schema)
         "$or": or_filters,
     }
     with pytest.raises(ValidationError) as e:
-        query_filters_validator(filters, default_search_schema)
+        parse_query_filters(filters, default_search_schema)
 
     assert e.value.error_dict == {
         "filters": [
@@ -96,7 +96,7 @@ def test_filters_single_field(default_search_schema):
     filters = {
         "field1": {"gte": 100},
     }
-    result = query_filters_validator(filters, default_search_schema)
+    result = parse_query_filters(filters, default_search_schema)
     assert result == FilterOp(field="field1", op="gte", value=100)
 
 
@@ -104,7 +104,7 @@ def test_filters_single_field_shorthand(default_search_schema):
     filters = {
         "field1": "value1",
     }
-    result = query_filters_validator(filters, default_search_schema)
+    result = parse_query_filters(filters, default_search_schema)
     assert result == FilterOp(field="field1", op="eq", value="value1")
 
 
@@ -112,7 +112,7 @@ def test_filters_single_field_in(default_search_schema):
     filters = {
         "field1": {"in": ["a", "b"]},
     }
-    result = query_filters_validator(filters, default_search_schema)
+    result = parse_query_filters(filters, default_search_schema)
     assert result == FilterOp(field="field1", op="in", value=["a", "b"])
 
 
@@ -120,7 +120,7 @@ def test_filters_single_field_in_shorthand(default_search_schema):
     filters = {
         "field1": ["a", "b"],
     }
-    result = query_filters_validator(filters, default_search_schema)
+    result = parse_query_filters(filters, default_search_schema)
     assert result == FilterOp(field="field1", op="in", value=["a", "b"])
 
 
@@ -128,7 +128,7 @@ def test_filters_single_field_in_shorthand_with_field_operator(default_search_sc
     filters = {
         "field1": [10, 20, {"gte": 50, "lte": 60}, 80, 100],
     }
-    result = query_filters_validator(filters, default_search_schema)
+    result = parse_query_filters(filters, default_search_schema)
     assert result == FilterOp(
         field=None,
         op="$or",
@@ -153,7 +153,7 @@ def test_filters_top_operators_one_key(default_search_schema):
             {"field2": {"gte": 50, "lte": 60}, "field3": "value3"},
         ]
     }
-    result = query_filters_validator(filters, default_search_schema)
+    result = parse_query_filters(filters, default_search_schema)
     assert result == FilterOp(
         field=None,
         op="$or",
@@ -177,7 +177,7 @@ def test_filters_multiple_fields_combined_as_and(default_search_schema):
         "field1": "value1",
         "field2": "value2",
     }
-    result = query_filters_validator(filters, default_search_schema)
+    result = parse_query_filters(filters, default_search_schema)
     assert result == FilterOp(
         field=None,
         op="$and",
@@ -197,7 +197,7 @@ def test_filters_multiple_fields_with_and_filter_op(default_search_schema):
             {"field4": "value4"},
         ],
     }
-    result = query_filters_validator(filters, default_search_schema)
+    result = parse_query_filters(filters, default_search_schema)
     assert result == FilterOp(
         field=None,
         op="$and",
@@ -219,7 +219,7 @@ def test_filters_multiple_fields_with_or_filter_op(default_search_schema):
             {"field4": "value4"},
         ],
     }
-    result = query_filters_validator(filters, default_search_schema)
+    result = parse_query_filters(filters, default_search_schema)
     assert result == FilterOp(
         field=None,
         op="$and",
@@ -251,7 +251,7 @@ def test_filters_multiple_fields_with_different_filter_ops(default_search_schema
             {"field6": "value6"},
         ],
     }
-    result = query_filters_validator(filters, default_search_schema)
+    result = parse_query_filters(filters, default_search_schema)
     assert result == FilterOp(
         field=None,
         op="$and",
@@ -280,7 +280,7 @@ def test_filters_multiple_fields_with_wrong_and_filter_op(default_search_schema)
     }
 
     with pytest.raises(ValidationError) as e:
-        query_filters_validator(filters, default_search_schema)
+        parse_query_filters(filters, default_search_schema)
 
     assert e.value.error_dict == {
         "filters": [
@@ -294,7 +294,7 @@ def test_filters_list_of_filters_combined_as_or(default_search_schema):
         {"field1": "value1"},
         {"field2": "value2"},
     ]
-    result = query_filters_validator(filters, default_search_schema)
+    result = parse_query_filters(filters, default_search_schema)
     assert result == FilterOp(
         field=None,
         op="$or",
@@ -328,7 +328,7 @@ def test_filters_test_nested_operators_combined(default_search_schema):
             },
         ],
     }
-    result = query_filters_validator(filters, default_search_schema)
+    result = parse_query_filters(filters, default_search_schema)
     assert result == FilterOp(
         field=None,
         op="$and",
@@ -368,7 +368,7 @@ def test_filters_nested_operators(default_search_schema):
             },
         ]
     }
-    result = query_filters_validator(filters, default_search_schema)
+    result = parse_query_filters(filters, default_search_schema)
     assert result == FilterOp(
         field=None,
         op="$or",
@@ -406,7 +406,7 @@ def test_filters_multiple_top_level_operators(default_search_schema):
         "$or": [{"field1": "value1"}, {"field2": "value2"}],
         "$and": [{"field3": "value3"}, {"field4": "value4"}],
     }
-    result = query_filters_validator(filters, default_search_schema)
+    result = parse_query_filters(filters, default_search_schema)
     assert result == FilterOp(
         field=None,
         op="$and",
@@ -436,7 +436,7 @@ def test_filters_list_of_filters_with_or_operator(default_search_schema):
             ]
         },
     ]
-    result = query_filters_validator(filters, default_search_schema)
+    result = parse_query_filters(filters, default_search_schema)
     assert result == FilterOp(
         field=None,
         op="$or",
@@ -452,7 +452,7 @@ def test_filters_list_of_filters_with_or_operator(default_search_schema):
 def test_filters_unknown_field_single_field(default_search_schema):
     filters = {"random_field": {"eq": "value"}}
     with pytest.raises(ValidationError) as e:
-        query_filters_validator(filters, default_search_schema)
+        parse_query_filters(filters, default_search_schema)
 
     assert e.value.error_dict == {"filters": ["Unknown field: random_field"]}
 
@@ -460,7 +460,7 @@ def test_filters_unknown_field_single_field(default_search_schema):
 def test_filters_unknown_field_single_field_shorthand(default_search_schema):
     filters = {"random_field": "value"}
     with pytest.raises(ValidationError) as e:
-        query_filters_validator(filters, default_search_schema)
+        parse_query_filters(filters, default_search_schema)
 
     assert e.value.error_dict == {"filters": ["Unknown field: random_field"]}
 
@@ -468,7 +468,7 @@ def test_filters_unknown_field_single_field_shorthand(default_search_schema):
 def test_filters_unknown_field_filter_op(default_search_schema):
     filters = {"$or": [{"field1": "value1"}, {"random_field": "value"}]}
     with pytest.raises(ValidationError) as e:
-        query_filters_validator(filters, default_search_schema)
+        parse_query_filters(filters, default_search_schema)
 
     assert e.value.error_dict == {"filters": ["Unknown field: random_field"]}
 
@@ -481,7 +481,7 @@ def test_filters_unknown_field_multiple_filter_op(default_search_schema):
         ]
     }
     with pytest.raises(ValidationError) as e:
-        query_filters_validator(filters, default_search_schema)
+        parse_query_filters(filters, default_search_schema)
 
     assert e.value.error_dict == {
         "filters": [
@@ -499,7 +499,7 @@ def test_filters_different_errors(default_search_schema):
         ]
     }
     with pytest.raises(ValidationError) as e:
-        query_filters_validator(filters, default_search_schema)
+        parse_query_filters(filters, default_search_schema)
 
     assert e.value.error_dict == {
         "filters": [
@@ -549,7 +549,7 @@ def test_filters_max_nested_depth(default_search_schema):
         ]
     }
     with pytest.raises(ValidationError) as e:
-        query_filters_validator(filters, default_search_schema)
+        parse_query_filters(filters, default_search_schema)
 
     assert e.value.error_dict == {
         "filters": ["Maximum nesting depth for filter operations reached"]
@@ -595,7 +595,7 @@ def test_filters_max_nested_depth_same_op(default_search_schema):
         ]
     }
     with pytest.raises(ValidationError) as e:
-        query_filters_validator(filters, default_search_schema)
+        parse_query_filters(filters, default_search_schema)
 
     assert e.value.error_dict == {
         "filters": ["Maximum nesting depth for filter operations reached"]
@@ -612,7 +612,7 @@ def test_filters_depth_not_nested_depth(default_search_schema):
         ]
     }
 
-    query_filters_validator(filters, default_search_schema)
+    parse_query_filters(filters, default_search_schema)
 
 
 def test_filters_max_number_list_of_dicts():
@@ -620,7 +620,7 @@ def test_filters_max_number_list_of_dicts():
     search_schema = {"fields": {f"field{i}": {} for i in range(0, 100)}}
 
     with pytest.raises(ValidationError) as e:
-        query_filters_validator(filters, search_schema)
+        parse_query_filters(filters, search_schema)
 
     assert e.value.error_dict == {
         "filters": ["Maximum number of filter operation exceeded"]
@@ -632,7 +632,7 @@ def test_filters_max_number_list_with_big_dict():
     search_schema = {"fields": {f"field{i}": {} for i in range(0, 200)}}
 
     with pytest.raises(ValidationError) as e:
-        query_filters_validator(filters, search_schema)
+        parse_query_filters(filters, search_schema)
 
     assert e.value.error_dict == {
         "filters": ["Maximum number of filter operation exceeded"]
@@ -644,7 +644,7 @@ def test_filters_max_number_keys_in_dict():
     search_schema = {"fields": {f"field{i}": {} for i in range(0, 100)}}
 
     with pytest.raises(ValidationError) as e:
-        query_filters_validator(filters, search_schema)
+        parse_query_filters(filters, search_schema)
 
     assert e.value.error_dict == {
         "filters": ["Maximum number of filter operation exceeded"]
@@ -663,7 +663,7 @@ def test_filters_max_number_keys_in_dict_nested():
     }
 
     with pytest.raises(ValidationError) as e:
-        query_filters_validator(filters, search_schema)
+        parse_query_filters(filters, search_schema)
 
     assert e.value.error_dict == {
         "filters": ["Maximum number of filter operation exceeded"]
@@ -686,7 +686,7 @@ def test_filters_max_number_nested(default_search_schema):
     filters = {"$or": [sub_filters] * 10}
 
     with pytest.raises(ValidationError) as e:
-        query_filters_validator(filters, default_search_schema)
+        parse_query_filters(filters, default_search_schema)
 
     assert e.value.error_dict == {
         "filters": ["Maximum number of filter operation exceeded"]
@@ -748,7 +748,7 @@ def test_filterop_count():
 #            {"field1": "value1"},
 #        ]
 #    }
-#    result = query_filters_validator(filters, default_search_schema)
+#    result = parse_query_filters(filters, default_search_schema)
 #    assert result == FilterOp(field="field1", op="eq", value="value1")
 #
 #
@@ -759,5 +759,5 @@ def test_filterop_count():
 #            {"field1": "value1"},
 #        ]
 #    }
-#    result = query_filters_validator(filters, default_search_schema)
+#    result = parse_query_filters(filters, default_search_schema)
 #    assert result == FilterOp(field="field1", op="eq", value="value1")
