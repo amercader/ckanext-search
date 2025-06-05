@@ -623,7 +623,7 @@ def test_filters_max_number_list_of_dicts():
         parse_query_filters(filters, search_schema)
 
     assert e.value.error_dict == {
-        "filters": ["Maximum number of filter operation exceeded"]
+        "filters": ["Maximum number of filter operations exceeded"]
     }
 
 
@@ -635,7 +635,7 @@ def test_filters_max_number_list_with_big_dict():
         parse_query_filters(filters, search_schema)
 
     assert e.value.error_dict == {
-        "filters": ["Maximum number of filter operation exceeded"]
+        "filters": ["Maximum number of filter operations exceeded"]
     }
 
 
@@ -647,7 +647,7 @@ def test_filters_max_number_keys_in_dict():
         parse_query_filters(filters, search_schema)
 
     assert e.value.error_dict == {
-        "filters": ["Maximum number of filter operation exceeded"]
+        "filters": ["Maximum number of filter operations exceeded"]
     }
 
 
@@ -666,7 +666,7 @@ def test_filters_max_number_keys_in_dict_nested():
         parse_query_filters(filters, search_schema)
 
     assert e.value.error_dict == {
-        "filters": ["Maximum number of filter operation exceeded"]
+        "filters": ["Maximum number of filter operations exceeded"]
     }
 
 
@@ -689,7 +689,7 @@ def test_filters_max_number_nested(default_search_schema):
         parse_query_filters(filters, default_search_schema)
 
     assert e.value.error_dict == {
-        "filters": ["Maximum number of filter operation exceeded"]
+        "filters": ["Maximum number of filter operations exceeded"]
     }
 
 

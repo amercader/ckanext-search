@@ -4,7 +4,7 @@ See doc/filters.md for the draft spec used by the validator
 
 """
 
-from typing import NamedTuple, Any, Dict, List, Union, Optional
+from typing import NamedTuple, Any, Dict, List, Union, Optional, Callable
 
 from ckan.plugins.toolkit import ValidationError
 
@@ -86,18 +86,12 @@ def _check_filter_operator(key: str, value: Any) -> Optional[str]:
         return f"Filter operations must be defined as a list of dicts: {value}"
 
 
-def _check_num_filter_ops(filter_ops: FilterOp | List[FilterOp]):
-    if isinstance(filter_ops, FilterOp):
-        filter_ops = [filter_ops]
-
-    if sum([f.op_count() for f in filter_ops]) >= MAX_FILTER_OPS_NUM:
-        raise ValidationError(
-            {"filters": ["Maximum number of filter operation exceeded"]}
-        )
-
-
 def _combine_filter_operator_members(
-    value: Any, parent_operator: str, search_schema: dict, nesting_level: int
+    value: Any,
+    parent_operator: str,
+    search_schema: dict,
+    filter_op_factory: Callable,
+    nesting_level: int,
 ) -> tuple[Optional[List[FilterOp]], Optional[List[str]]]:
     """
     Combine child operator members of the same type, e.g.:
@@ -132,14 +126,13 @@ def _combine_filter_operator_members(
         )
     """
     child_filters, errors = _process_filter_operator_members(
-        value, parent_operator, search_schema, nesting_level + 1
+        value, parent_operator, search_schema, filter_op_factory, nesting_level + 1
     )
 
     if errors:
         return None, errors
     elif child_filters:
         out = _combine_filter_operations(child_filters, parent_operator)
-        _check_num_filter_ops(out)
 
         return out, None
 
@@ -160,7 +153,11 @@ def _combine_filter_operations(
 
 
 def _process_filter_operator_members(
-    value: List[dict], parent_operator: str, search_schema: dict, nesting_level: int
+    value: List[dict],
+    parent_operator: str,
+    search_schema: dict,
+    filter_op_factory: Callable,
+    nesting_level: int,
 ) -> tuple[Optional[List[FilterOp]], Optional[List[str]]]:
 
     if nesting_level >= MAX_FILTER_OPS_DEPTH:
@@ -184,7 +181,7 @@ def _process_filter_operator_members(
 
         if len(item.keys()) >= MAX_FILTER_OPS_NUM:
             raise ValidationError(
-                {"filters": ["Maximum number of filter operation exceeded"]}
+                {"filters": ["Maximum number of filter operations exceeded"]}
             )
 
         for key in item.keys():
@@ -197,7 +194,7 @@ def _process_filter_operator_members(
                     continue
 
                 child_ops_for_key, child_errors = _combine_filter_operator_members(
-                    item[key], key, search_schema, nesting_level
+                    item[key], key, search_schema, filter_op_factory, nesting_level
                 )
 
                 if child_errors:
@@ -205,7 +202,7 @@ def _process_filter_operator_members(
                     continue
 
                 child_ops.append(
-                    FilterOp(
+                    filter_op_factory(
                         op=key,
                         field=None,
                         value=child_ops_for_key,
@@ -214,7 +211,7 @@ def _process_filter_operator_members(
             else:
                 # Handle field key
                 field_op, field_errors = _process_field_operator(
-                    key, item[key], search_schema
+                    key, item[key], search_schema, filter_op_factory
                 )
 
                 if field_errors:
@@ -226,7 +223,7 @@ def _process_filter_operator_members(
             out.append(child_ops[0])
         else:
             out.append(
-                FilterOp(
+                filter_op_factory(
                     field=None, op=AND, value=_combine_filter_operations(child_ops, AND)
                 )
             )
@@ -234,24 +231,26 @@ def _process_filter_operator_members(
     return out, errors
 
 
-def _check_field_operator(field_name, op, value, search_schema):
+def _check_field_operator(field_name, op, value, search_schema, filter_op_factory):
 
     errors = _validate_field_operator(field_name, op, value, search_schema)
     if errors:
         return None, errors
     else:
-        return FilterOp(field=field_name, op=op, value=value), None
+        return filter_op_factory(field=field_name, op=op, value=value), None
 
 
 def _process_field_operator(
-    field_name: str, value: Any, search_schema: dict
+    field_name: str, value: Any, search_schema: dict, filter_op_factory: Callable
 ) -> tuple[Optional[FilterOp], Optional[List[str]]]:
 
     if field_name.startswith("$$"):
         field_name = field_name[1:]
 
     if not isinstance(value, (dict, list)):
-        return _check_field_operator(field_name, "eq", value, search_schema)
+        return _check_field_operator(
+            field_name, "eq", value, search_schema, filter_op_factory
+        )
 
     elif isinstance(value, dict):
 
@@ -261,7 +260,7 @@ def _process_field_operator(
             errors = []
             for k, v in value.items():
                 field_op, field_errors = _process_field_operator(
-                    field_name, {k: v}, search_schema
+                    field_name, {k: v}, search_schema, filter_op_factory
                 )
                 if field_errors:
                     errors.extend(field_errors)
@@ -271,8 +270,7 @@ def _process_field_operator(
             if errors:
                 return None, errors
             else:
-                out = FilterOp(op=AND, field=None, value=child_ops)
-                _check_num_filter_ops(out)
+                out = filter_op_factory(op=AND, field=None, value=child_ops)
                 return out, None
 
         else:
@@ -280,7 +278,9 @@ def _process_field_operator(
 
             op = list(value.keys())[0]
 
-            return _check_field_operator(field_name, op, value[op], search_schema)
+            return _check_field_operator(
+                field_name, op, value[op], search_schema, filter_op_factory
+            )
 
     elif isinstance(value, list):
         # TODO: fail if lists
@@ -289,7 +289,7 @@ def _process_field_operator(
         non_field_ops = [x for x in value if x not in field_ops]
 
         if not field_ops:
-            return FilterOp(field=field_name, op="in", value=value), None
+            return filter_op_factory(field=field_name, op="in", value=value), None
 
         members = []
         errors = []
@@ -297,7 +297,7 @@ def _process_field_operator(
         for field_op in field_ops:
 
             field_op, field_errors = _process_field_operator(
-                field_name, field_op, search_schema
+                field_name, field_op, search_schema, filter_op_factory
             )
             if field_errors:
                 errors.extend(field_errors)
@@ -305,13 +305,14 @@ def _process_field_operator(
             else:
                 members.append(field_op)
 
-        members.append(FilterOp(field=field_name, op="in", value=non_field_ops))
+        members.append(
+            filter_op_factory(field=field_name, op="in", value=non_field_ops)
+        )
 
         if errors:
             return None, errors
         else:
-            out = FilterOp(op=OR, field=None, value=members)
-            _check_num_filter_ops(out)
+            out = filter_op_factory(op=OR, field=None, value=members)
             return out, None
 
 
@@ -332,20 +333,31 @@ def parse_query_filters(
     filters: Optional[FilterOp] = None
     errors = []
 
+    total_ops = 0
+
+    def filter_op_factory(*args, **kwargs):
+        nonlocal total_ops
+        total_ops += 1
+        if total_ops > MAX_FILTER_OPS_NUM:
+            raise ValidationError(
+                {"filters": ["Maximum number of filter operations exceeded"]}
+            )
+        return FilterOp(*args, **kwargs)
+
     if isinstance(input_value, list):
         # Filters provided as a list of dicts
 
         if len(input_value) >= MAX_FILTER_OPS_NUM:
             raise ValidationError(
-                {"filters": ["Maximum number of filter operation exceeded"]}
+                {"filters": ["Maximum number of filter operations exceeded"]}
             )
 
         child_ops, errors = _combine_filter_operator_members(
-            input_value, OR, search_schema, nesting_level=0
+            input_value, OR, search_schema, filter_op_factory, nesting_level=0
         )
 
         if child_ops:
-            filters = FilterOp(
+            filters = filter_op_factory(
                 op=OR,
                 field=None,
                 value=child_ops,
@@ -358,7 +370,7 @@ def parse_query_filters(
 
         if len(input_value.keys()) >= MAX_FILTER_OPS_NUM:
             raise ValidationError(
-                {"filters": ["Maximum number of filter operation exceeded"]}
+                {"filters": ["Maximum number of filter operations exceeded"]}
             )
 
         for key, value in input_value.items():
@@ -371,7 +383,7 @@ def parse_query_filters(
                     continue
 
                 child_ops, child_errors = _combine_filter_operator_members(
-                    value, key, search_schema, nesting_level=0
+                    value, key, search_schema, filter_op_factory, nesting_level=0
                 )
 
                 if child_errors:
@@ -384,7 +396,7 @@ def parse_query_filters(
                         child_filters.extend(child_ops)
                     else:
                         child_filters.append(
-                            FilterOp(
+                            filter_op_factory(
                                 op=key,
                                 field=None,
                                 value=child_ops,
@@ -394,7 +406,7 @@ def parse_query_filters(
             else:
                 # Handle Field Operators (e.g. {"field": "value"})
                 field_op, field_errors = _process_field_operator(
-                    key, value, search_schema
+                    key, value, search_schema, filter_op_factory
                 )
 
                 if field_errors:
@@ -403,7 +415,7 @@ def parse_query_filters(
                     child_filters.append(field_op)
 
         if not errors and len(child_filters) > 1:
-            filters = FilterOp(op=AND, field=None, value=child_filters)
+            filters = filter_op_factory(op=AND, field=None, value=child_filters)
         elif not errors and len(child_filters) == 1:
             filters = child_filters[0]
 
