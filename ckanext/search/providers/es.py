@@ -99,6 +99,7 @@ class ElasticSearchProvider(SingletonPlugin):
         sort: list[list[str]],
         additional_params: dict[str, Any],
         lang: str,
+        search_schema: SearchSchema,
         return_ids: bool = False,
         return_entity_types: bool = False,
         return_facets: bool = False,
