@@ -151,3 +151,62 @@ def test_filters_unknown_field_is_quoted(ssp):
 def test_filters_quotes_are_escaped(ssp, filters, result):
 
     assert ssp._filterop_to_solr_fq(filters, SEARCH_SCHEMA) == result
+
+
+def test_filters_basic_or(ssp):
+
+    filters = FilterOp(
+        field=None,
+        op="$or",
+        value=[
+            FilterOp(field="some_text_field", op="eq", value="some_value1"),
+            FilterOp(field="some_text_field", op="eq", value="some_value2"),
+        ],
+    )
+
+    result = ['(some_text_field:"some_value1") OR (some_text_field:"some_value2")']
+    assert ssp._filterop_to_solr_fq(filters, SEARCH_SCHEMA) == result
+
+
+def test_filters_basic_and(ssp):
+
+    filters = FilterOp(
+        field=None,
+        op="$and",
+        value=[
+            FilterOp(field="some_text_field", op="eq", value="some_value1"),
+            FilterOp(field="some_numeric_field", op="lte", value=10),
+        ],
+    )
+
+    result = ['(some_text_field:"some_value1") AND (some_numeric_field:[* TO 10])']
+    assert ssp._filterop_to_solr_fq(filters, SEARCH_SCHEMA) == result
+
+
+def test_filters_permission_labels(ssp):
+    labels = ["creator-xxx", "member-yyy", "collaborator-zzz"]
+    perm_labels_filter_op = FilterOp(field="permission_labels", op="in", value=labels)
+
+    filters = FilterOp(
+        field=None,
+        op="$and",
+        value=[
+            FilterOp(
+                field=None,
+                op="$and",
+                value=[
+                    FilterOp(field="some_text_field", op="eq", value="some_value1"),
+                    FilterOp(field="some_numeric_field", op="lte", value=10),
+                ],
+            ),
+            perm_labels_filter_op,
+        ],
+    )
+
+    result = [
+        '((some_text_field:"some_value1") AND (some_numeric_field:[* TO 10])) AND '
+        '(permission_labels:"creator-xxx" OR '
+        'permission_labels:"member-yyy" OR '
+        'permission_labels:"collaborator-zzz")'
+    ]
+    assert ssp._filterop_to_solr_fq(filters, SEARCH_SCHEMA) == result
