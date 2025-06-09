@@ -48,6 +48,8 @@ def index_dataset_dict(dataset_dict: ActionResult.PackageShow) -> None:
     # TODO: handle resource fields
     search_data.pop("resources", None)
 
+    search_data["tags"] = [t["name"] for t in search_data.get("tags", [])]
+
     # Add search-specific fields
 
     search_data["entity_type"] = "dataset"

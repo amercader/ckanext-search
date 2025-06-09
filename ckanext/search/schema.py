@@ -42,6 +42,7 @@ DEFAULT_DATASET_SEARCH_SCHEMA: SearchSchema = {
         "name": {"type": "text"},
         "title": {"type": "text"},
         "notes": {"type": "text"},
+        "version": {"type": "text"},
         "tags": {"type": "string", "multiple": True},
         "groups": {"type": "string", "multiple": True},
         "organization": {"type": "string"},
