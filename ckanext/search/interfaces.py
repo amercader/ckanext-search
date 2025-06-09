@@ -4,12 +4,14 @@ from typing import Any, Iterable, Optional, TypedDict
 from ckan.types import Schema
 from ckan.plugins.interfaces import Interface
 
+from ckanext.search.filters import FilterOp
+
 
 class SearchSchema(TypedDict, total=False):
     """Type definition for search schema"""
 
     version: int
-    fields: list[dict[str, Any]]  # field properties like type, repeating, etc.
+    fields: dict[str, Any]  # field properties like type, repeating, etc.
 
 
 class SearchResults(TypedDict, total=False):
@@ -28,9 +30,11 @@ class ISearchProvider(Interface):
     def search_query(
         self,
         q: str,  # e.g. 'water data'
-        filters: dict[
-            str, str | list[str]
-        ],  # e.g. {'metadata_modified<': '2024-01-01', 'entity_type': ['package']}
+        # e.g. FilterOp(field=None, op="$and", value=[
+        #   FilterOp(field="metadata_modified", op="lt", value="2024-01-01"),
+        #   FilterOp(field="entity_type", op="eq", value="package")
+        #   ])
+        filters: FilterOp,
         sort: list[list[str]],  # e.g. [['title'], ['metadata_modified', 'desc']]
         additional_params: dict[
             str, Any

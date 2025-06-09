@@ -11,81 +11,78 @@ def merge_search_schemas(schemas: list[SearchSchema]) -> SearchSchema:
     Raises ValueError if conflicting field definitions are found.
     """
     if not schemas:
-        return {"version": 1, "fields": []}
+        return {"version": 1, "fields": {}}
 
     # Use the version from the first schema
-    result: SearchSchema = {"version": schemas[0].get("version", 1), "fields": []}
+    result: SearchSchema = {"version": schemas[0].get("version", 1), "fields": {}}
 
-    # Track fields we've already seen by name
-    field_map = {}
-
-    # Process all schemas
     for schema in schemas:
-        for field in schema.get("fields", []):
-            name = field.get("name")
-            if name in field_map:
+        for field_name, field_props in schema.get("fields", {}).items():
+            if field_name in result["fields"]:
                 # Check if the new field definition matches the existing one
-                existing_field = field_map[name]
-                # Create copies without the name for comparison
-                field_copy = field.copy().pop("name")
-                existing_copy = existing_field.copy().pop("name")
+                existing_props = result["fields"][field_name]
 
-                if field_copy != existing_copy:
+                if field_props != existing_props:
                     raise ValueError(
-                        f"Conflicting definitions for field '{name}': "
-                        f"{existing_field} vs {field}"
+                        f"Conflicting definitions for field '{field_name}': "
+                        f"{existing_props} vs {field_props}"
                     )
             else:
-                # Add new field to our result and tracking map
-                field_map[name] = field
-                result["fields"].append(field)
+                result["fields"][field_name] = field_props
 
     return result
 
 
 DEFAULT_DATASET_SEARCH_SCHEMA: SearchSchema = {
     "version": 1,
-    "fields": [
-        {"name": "id", "type": "string"},
-        {"name": "entity_type", "type": "string"},
-        {"name": "dataset_type", "type": "string"},
-        {"name": "name", "type": "text"},
-        {"name": "title", "type": "text"},
-        {"name": "notes", "type": "text"},
-        {"name": "tags", "type": "string", "multiple": True},
-        {"name": "groups", "type": "string", "multiple": True},
-        {"name": "organization", "type": "string"},
-        {"name": "private", "type": "bool"},
-        {"name": "metadata_created", "type": "date"},
-        {"name": "metadata_modified", "type": "date"},
-        {"name": "permission_labels", "type": "string", "multiple": True},
-        {
-            "name": "validated_data_dict",
+    "fields": {
+        "id": {"type": "string"},
+        "entity_type": {"type": "string"},
+        "dataset_type": {"type": "string"},
+        "name": {"type": "text"},
+        "title": {"type": "text"},
+        "notes": {"type": "text"},
+        "tags": {"type": "string", "multiple": True},
+        "groups": {"type": "string", "multiple": True},
+        "organization": {"type": "string"},
+        "private": {"type": "bool"},
+        "metadata_created": {"type": "date"},
+        "metadata_modified": {"type": "date"},
+        "permission_labels": {"type": "string", "multiple": True},
+        "validated_data_dict": {
             "type": "string",
             "indexed": False,
             "stored": True,
         },
         # TODO: nested fields (e.g. resources)
-    ],
+    },
 }
 
 DEFAULT_ORGANIZATION_SEARCH_SCHEMA: SearchSchema = {
     "version": 1,
-    "fields": [
-        {"name": "id", "type": "string"},
-        {"name": "entity_type", "type": "string"},
-        {"name": "organization_type", "type": "string"},  # TODO: group_type?
-        {"name": "name", "type": "text"},
-        {"name": "title", "type": "text"},
-        {"name": "description", "type": "text"},
-        {
-            "name": "validated_data_dict",
+    "fields": {
+        "id": {"type": "string"},
+        "entity_type": {"type": "string"},
+        "organization_type": {"type": "string"},  # TODO: group_type?
+        "name": {"type": "text"},
+        "title": {"type": "text"},
+        "description": {"type": "text"},
+        "validated_data_dict": {
             "type": "string",
             "indexed": False,
             "stored": True,
         },
-    ],
+    },
 }
+
+
+def get_search_schema() -> SearchSchema:
+    search_schemas = [
+        DEFAULT_DATASET_SEARCH_SCHEMA,
+        DEFAULT_ORGANIZATION_SEARCH_SCHEMA,
+    ]
+
+    return merge_search_schemas(search_schemas)
 
 
 def init_schema(provider_id: str | None = None):
@@ -94,12 +91,7 @@ def init_schema(provider_id: str | None = None):
 
     # TODO: validate with navl
 
-    search_schemas = [
-        DEFAULT_DATASET_SEARCH_SCHEMA,
-        DEFAULT_ORGANIZATION_SEARCH_SCHEMA,
-    ]
-
-    combined_search_schema = merge_search_schemas(search_schemas)
+    combined_search_schema = get_search_schema()
 
     provider_ids = []
     # Search providers set things up first
@@ -120,5 +112,7 @@ def init_schema(provider_id: str | None = None):
 
     # Search feature plugins can add things later
     for plugin in PluginImplementations(ISearchFeature):
-        if any(provider_id in plugin.supported_providers() for provider_id in provider_ids):
+        if any(
+            provider_id in plugin.supported_providers() for provider_id in provider_ids
+        ):
             plugin.initialize_search_provider(combined_search_schema, clear=False)

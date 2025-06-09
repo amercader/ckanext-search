@@ -214,9 +214,8 @@ class SolrSearchProvider(SingletonPlugin):
             "date": "pdate",
         }
 
-        for field in search_schema["fields"]:
+        for field_name, field in search_schema.get("fields", {}).items():
 
-            field_name = field.pop("name")
             field_type = field.pop("type")
             if admin_client.get_field(field_name):
                 log.info(
@@ -340,20 +339,22 @@ class SolrSearchProvider(SingletonPlugin):
         }
 
         # TODO: perm labels for arbitrary entities
-        if "permission_labels" in filters:
-            perms_conditions = (
-                "permission_labels:("
-                + " OR ".join(solr_literal(p) for p in filters["permission_labels"])
-                + ")"
-            )
 
-            perms_fq = (
-                "(entity_type:dataset AND {}) OR (*:* NOT entity_type:dataset)".format(
-                    perms_conditions
-                )
-            )
+        # TODO: Migrate to FilterOp
+        #if "permission_labels" in filters:
+        #    perms_conditions = (
+        #        "permission_labels:("
+        #        + " OR ".join(solr_literal(p) for p in filters["permission_labels"])
+        #        + ")"
+        #    )
 
-            solr_params["fq"].append(perms_fq)
+        #    perms_fq = (
+        #        "(entity_type:dataset AND {}) OR (*:* NOT entity_type:dataset)".format(
+        #            perms_conditions
+        #        )
+        #    )
+
+        #    solr_params["fq"].append(perms_fq)
 
         client = self.get_client()
 

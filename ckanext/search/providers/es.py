@@ -56,9 +56,8 @@ class ElasticSearchProvider(SingletonPlugin):
         }
 
         mapping = {"properties": {}}
-        for field in search_schema["fields"]:
+        for field_name, field in search_schema.get("fields", {}).items():
 
-            field_name = field.pop("name")
             field_type = field.pop("type")
 
             if field_type in es_field_types:
