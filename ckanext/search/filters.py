@@ -60,12 +60,11 @@ class FilterOp(NamedTuple):
             f"FilterOp(field={repr(self.field)}, op={repr(self.op)}, value={value_str})"
         )
 
-
 class FiltersParser:
 
     search_schema: dict = {}
     filters: Optional[FilterOp] = None
-    errors: Optional[list[str]] = None
+    errors: list[str] = []
     total_ops: int = 0
 
     def __init__(
@@ -76,15 +75,14 @@ class FiltersParser:
 
         self.search_schema = search_schema
 
-        self.filters, self.errors = self._parse_query_filters(
-            input_value, search_schema
-        )
+        self.errors = []
+        self.filters = self._parse_query_filters(input_value)
 
     def _validate_field_operator(
-        self, field_name: str, operator: str, value: Any, search_schema: dict
+        self, field_name: str, operator: str, value: Any
     ) -> Optional[List[str]]:
 
-        if field_name not in search_schema["fields"].keys():
+        if field_name not in self.search_schema["fields"].keys():
             return [f"Unknown field: {field_name}"]
 
         # TODO: check value depending on operation and field type
@@ -115,9 +113,8 @@ class FiltersParser:
         self,
         value: Any,
         parent_operator: str,
-        search_schema: dict,
         nesting_level: int,
-    ) -> tuple[Optional[List[FilterOp]], Optional[List[str]]]:
+    ) -> Optional[List[FilterOp]]:
         """
         Combine child operator members of the same type, e.g.:
 
@@ -150,18 +147,15 @@ class FiltersParser:
                 ],
             )
         """
-        child_filters, errors = self._process_filter_operator_members(
-            value, parent_operator, search_schema, nesting_level + 1
+        child_filters = self._process_filter_operator_members(
+            value, parent_operator, nesting_level + 1
         )
 
-        if errors:
-            return None, errors
-        elif child_filters:
+        if child_filters:
             out = self._combine_filter_operations(child_filters, parent_operator)
+            return out
 
-            return out, None
-
-        return None, None
+        return None
 
     def _combine_filter_operations(
         self, filter_ops: List[FilterOp], parent_operator: str
@@ -179,9 +173,8 @@ class FiltersParser:
         self,
         value: List[dict],
         parent_operator: str,
-        search_schema: dict,
         nesting_level: int,
-    ) -> tuple[Optional[List[FilterOp]], Optional[List[str]]]:
+    ) -> Optional[List[FilterOp]]:
 
         if nesting_level >= MAX_FILTER_OPS_DEPTH:
             raise ValidationError(
@@ -189,14 +182,16 @@ class FiltersParser:
             )
 
         if not isinstance(value, list):
-            return None, [f"Filter operations must contain lists of filters: {value}"]
+            self.errors.append(
+                f"Filter operations must contain lists of filters: {value}"
+            )
+            return None
 
         out: List[FilterOp] = []
-        errors = []
 
         for item in value:
             if not isinstance(item, dict):
-                errors.append(
+                self.errors.append(
                     f"Filter operation members must be dictionaries: {item!r}"
                 )
                 continue
@@ -215,43 +210,35 @@ class FiltersParser:
                     # Handle operator key
                     op_errors = self._check_filter_operator(key, item[key])
                     if op_errors:
-                        errors.append(op_errors)
+                        self.errors.append(op_errors)
                         continue
 
-                    child_ops_for_key, child_errors = (
-                        self._combine_filter_operator_members(
-                            item[key],
-                            key,
-                            search_schema,
-                            nesting_level,
-                        )
+                    child_ops_for_key = self._combine_filter_operator_members(
+                        item[key],
+                        key,
+                        nesting_level,
                     )
 
-                    if child_errors:
-                        errors.extend(child_errors)
-                        continue
-
-                    child_ops.append(
-                        self._new_filter_op(
-                            op=key,
-                            field=None,
-                            value=child_ops_for_key,
+                    if child_ops_for_key:
+                        child_ops.append(
+                            self._new_filter_op(
+                                op=key,
+                                field=None,
+                                value=child_ops_for_key,
+                            )
                         )
-                    )
                 else:
                     # Handle field key
-                    field_op, field_errors = self._process_field_operator(
-                        key, item[key], search_schema
+                    field_op = self._process_field_operator(
+                        key, item[key]
                     )
 
-                    if field_errors:
-                        errors.extend(field_errors)
-                    elif field_op:
+                    if field_op:
                         child_ops.append(field_op)
 
             if len(child_ops) == 1:
                 out.append(child_ops[0])
-            else:
+            elif len(child_ops) > 1:
                 out.append(
                     self._new_filter_op(
                         field=None,
@@ -260,59 +247,54 @@ class FiltersParser:
                     )
                 )
 
-        return out, errors
+        return out if out else None
 
     def _check_field_operator(
-        self, field_name: str, op: str, value: Any, search_schema: dict
-    ) -> tuple[Optional[FilterOp], Optional[List[str]]]:
+        self, field_name: str, op: str, value: Any
+    ) -> Optional[FilterOp]:
 
-        errors = self._validate_field_operator(field_name, op, value, search_schema)
+        errors = self._validate_field_operator(field_name, op, value)
         if errors:
-            return None, errors
+            self.errors.extend(errors)
+            return None
         else:
-            return self._new_filter_op(field=field_name, op=op, value=value), None
+            return self._new_filter_op(field=field_name, op=op, value=value)
 
     def _process_field_operator(
         self,
         field_name: str,
         value: Any,
-        search_schema: dict,
-    ) -> tuple[Optional[FilterOp], Optional[List[str]]]:
+    ) -> Optional[FilterOp]:
 
         if field_name.startswith("$$"):
             field_name = field_name[1:]
 
         if not isinstance(value, (dict, list)):
-            return self._check_field_operator(field_name, "eq", value, search_schema)
+            return self._check_field_operator(field_name, "eq", value)
 
         elif isinstance(value, dict):
 
             if len(value.keys()) > 1:
                 # Combine dict filters with $and
                 child_ops = []
-                errors = []
                 for k, v in value.items():
-                    field_op, field_errors = self._process_field_operator(
-                        field_name, {k: v}, search_schema
+                    field_op = self._process_field_operator(
+                        field_name, {k: v}
                     )
-                    if field_errors:
-                        errors.extend(field_errors)
-                    else:
+                    if field_op:
                         child_ops.append(field_op)
 
-                if errors:
-                    return None, errors
-                else:
+                if child_ops:
                     out = self._new_filter_op(op=AND, field=None, value=child_ops)
-                    return out, None
+                    return out
+                else:
+                    return None
 
             else:
                 # Just return the filter
-
                 op = list(value.keys())[0]
-
                 return self._check_field_operator(
-                    field_name, op, value[op], search_schema
+                    field_name, op, value[op]
                 )
 
         elif isinstance(value, list):
@@ -322,40 +304,35 @@ class FiltersParser:
             non_field_ops = [x for x in value if x not in field_ops]
 
             if not field_ops:
-                return self._new_filter_op(field=field_name, op="in", value=value), None
+                return self._new_filter_op(field=field_name, op="in", value=value)
 
             members = []
-            errors = []
 
             for field_op in field_ops:
-
-                field_op, field_errors = self._process_field_operator(
-                    field_name, field_op, search_schema
+                field_op = self._process_field_operator(
+                    field_name, field_op
                 )
-                if field_errors:
-                    errors.extend(field_errors)
-                    continue
-                else:
+                if field_op:
                     members.append(field_op)
 
-            members.append(
-                self._new_filter_op(field=field_name, op="in", value=non_field_ops)
-            )
+            if non_field_ops:
+                members.append(
+                    self._new_filter_op(field=field_name, op="in", value=non_field_ops)
+                )
 
-            if errors:
-                return None, errors
-            else:
+            if members:
                 out = self._new_filter_op(op=OR, field=None, value=members)
-                return out, None
+                return out
+            else:
+                return None
 
     def _parse_query_filters(
         self,
         input_value: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]],
-        search_schema: dict,
-    ) -> tuple[Optional[FilterOp], Optional[List[str]]]:
+    ) -> Optional[FilterOp]:
 
         if not input_value:
-            return None, None
+            return None
 
         # Check structure
         if not self._is_dict_or_list_of_dicts(input_value):
@@ -364,7 +341,6 @@ class FiltersParser:
             )
 
         filters: Optional[FilterOp] = None
-        errors = []
 
         if isinstance(input_value, list):
             # Filters provided as a list of dicts
@@ -374,8 +350,8 @@ class FiltersParser:
                     {"filters": ["Maximum number of filter operations exceeded"]}
                 )
 
-            child_ops, errors = self._combine_filter_operator_members(
-                input_value, OR, search_schema, nesting_level=0
+            child_ops = self._combine_filter_operator_members(
+                input_value, OR, nesting_level=0
             )
 
             if child_ops:
@@ -401,18 +377,14 @@ class FiltersParser:
 
                     op_errors = self._check_filter_operator(key, value)
                     if op_errors:
-                        errors.append(op_errors)
+                        self.errors.append(op_errors)
                         continue
 
-                    child_ops, child_errors = self._combine_filter_operator_members(
-                        value, key, search_schema, nesting_level=0
+                    child_ops = self._combine_filter_operator_members(
+                        value, key, nesting_level=0
                     )
 
-                    if child_errors:
-                        errors.extend(child_errors)
-                        continue
-                    elif child_ops:
-
+                    if child_ops:
                         if key == AND:
                             # Just add child filters to the root $and
                             child_filters.extend(child_ops)
@@ -427,21 +399,17 @@ class FiltersParser:
 
                 else:
                     # Handle Field Operators (e.g. {"field": "value"})
-                    field_op, field_errors = self._process_field_operator(
-                        key, value, search_schema
-                    )
+                    field_op = self._process_field_operator(key, value)
 
-                    if field_errors:
-                        errors.extend(field_errors)
-                    else:
+                    if field_op:
                         child_filters.append(field_op)
 
-            if not errors and len(child_filters) > 1:
+            if not self.errors and len(child_filters) > 1:
                 filters = self._new_filter_op(op=AND, field=None, value=child_filters)
-            elif not errors and len(child_filters) == 1:
+            elif not self.errors and len(child_filters) == 1:
                 filters = child_filters[0]
 
-        return filters, errors
+        return filters
 
 
 def parse_query_filters(
