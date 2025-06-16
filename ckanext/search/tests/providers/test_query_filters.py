@@ -1,16 +1,8 @@
 import pytest
-from ckanext.search.logic.actions import search as search_action
+
 from ckanext.search.index import clear_index
+from ckanext.search.logic.actions import search as search_action
 from ckanext.search.tests import factories
-
-pytestmark = pytest.mark.usefixtures("with_plugins", "search_providers")
-
-
-@pytest.fixture
-def clean_search_index():
-    clear_index()
-    yield
-    clear_index()
 
 
 def search(**kwargs):
@@ -19,53 +11,10 @@ def search(**kwargs):
     return search_action(context, kwargs)
 
 
-@pytest.mark.usefixtures("clean_search_index")
-@pytest.mark.parametrize(
-    "field_name,field_value",
-    [
-        ("name", "walrus-data"),
-        ("title", "Walrus data"),
-        ("notes", "Some data about a walrus"),
-    ],
-)
-def test_search_dataset_combined_field(field_name, field_value):
-
-    dataset = factories.IndexedDataset(**{field_name: field_value})
-
-    result = search(q="walrus")
-
-    assert result["count"] == 1
-    assert result["results"][0]["id"] == dataset["id"]
-    assert result["results"][0][field_name] == field_value
-
-
-# TODO: test stemming English
-
-# TODO: test stemming other languages
-
-
-@pytest.mark.usefixtures("clean_search_index")
-@pytest.mark.parametrize(
-    "field_name,field_value",
-    [
-        ("name", "walrus-org"),
-        ("title", "Walrus org"),
-        ("description", "Some org about a walrus"),
-    ],
-)
-def test_search_organization_combined_field(field_name, field_value):
-
-    organization = factories.IndexedOrganization(**{field_name: field_value})
-
-    result = search(q="walrus")
-
-    assert result["count"] == 1
-    assert result["results"][0]["id"] == organization["id"]
-    assert result["results"][0][field_name] == field_value
-
-
-@pytest.fixture(scope="session")
+@pytest.fixture()
 def index_for_filters_tests():
+
+    clear_index()
 
     factories.IndexedDataset(
         name="dataset-cats",
@@ -100,7 +49,7 @@ def index_for_filters_tests():
     )
 
 
-@pytest.mark.usefixtures("index_for_filters_tests")
+@pytest.mark.usefixtures("with_plugins", "search_providers", "index_for_filters_tests")
 @pytest.mark.parametrize(
     "filters,names",
     [
@@ -182,7 +131,7 @@ def index_for_filters_tests():
         ),
     ],
 )
-def test_search_filters(index_for_filters_tests, filters, names):
+def test_search_filters(filters, names):
 
     result = search(q="*", filters=filters)
 
