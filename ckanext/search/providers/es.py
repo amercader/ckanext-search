@@ -199,8 +199,11 @@ class ElasticSearchProvider(SingletonPlugin):
                 return {"range": {field_name: {"lt": value}}}
             elif op == "lte":
                 return {"range": {field_name: {"lte": value}}}
-            elif op == "in" and isinstance(value, list) and value:
-                return {"terms": {field_name: value}}
+            elif op == "in":
+                if isinstance(value, list) and value:
+                    return {"terms": {field_name: value}}
+                else:
+                    return None
             else:
                 # Unknown operator, assume equality for now
                 return {"term": {field_name: value}}

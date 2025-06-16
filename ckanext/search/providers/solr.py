@@ -439,15 +439,7 @@ class SolrSearchProvider(SingletonPlugin):
                 "lte": "{field_name}:[* TO {value}]",
             }
 
-            if op == "in" and isinstance(value, list) and value:
-                return [
-                    " OR ".join(
-                        f"{field_name}:{self._process_value(v, field_type)}"
-                        for v in value
-                    )
-                ]
-
-            elif op in op_templates:
+            if op in op_templates:
                 return [
                     op_templates[op].format(
                         field_name=field_name,
@@ -456,6 +448,16 @@ class SolrSearchProvider(SingletonPlugin):
                         ),
                     )
                 ]
+            elif op == "in":
+                if isinstance(value, list) and value:
+                    return [
+                        " OR ".join(
+                            f"{field_name}:{self._process_value(v, field_type)}"
+                            for v in value
+                        )
+                    ]
+                else:
+                    return []
             else:
                 # Unknown operator, assume equality for now
                 # TODO: how to handle custom ones?

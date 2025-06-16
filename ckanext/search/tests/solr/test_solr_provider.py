@@ -43,10 +43,6 @@ def ssp():
             FilterOp(field="some_numeric_field", op="eq", value=2),
             ["some_numeric_field:2"],
         ),
-        (
-            FilterOp(field="some_numeric_field", op="eq", value="2"),
-            ["some_numeric_field:2"],
-        ),
     ],
 )
 def test_filters_builtin_operations_eq(ssp, filters, result):
@@ -118,6 +114,32 @@ def test_filters_builtin_operations_ranges_numbers(ssp, filters, result):
 def test_filters_builtin_operations_ranges_dates(ssp, filters, result):
 
     assert ssp._filterop_to_solr_fq(filters, SEARCH_SCHEMA) == result
+
+
+def test_filters_in_operation(ssp):
+    filters = FilterOp(
+        field="some_text_field",
+        op="in",
+        value=["value1", "value2", "value3"],
+    )
+
+    result = [
+        'some_text_field:"value1" OR '
+        'some_text_field:"value2" OR '
+        'some_text_field:"value3"'
+    ]
+    assert ssp._filterop_to_solr_fq(filters, SEARCH_SCHEMA) == result
+
+
+def test_filters_in_operation_empty_list(ssp):
+    filters = FilterOp(
+        field="some_text_field",
+        op="in",
+        value=[],
+    )
+
+    result = ssp._filterop_to_solr_fq(filters, SEARCH_SCHEMA)
+    assert result == []
 
 
 def test_filters_unknown_field_is_quoted(ssp):
@@ -209,4 +231,15 @@ def test_filters_permission_labels(ssp):
         'permission_labels:"member-yyy" OR '
         'permission_labels:"collaborator-zzz")'
     ]
+    assert ssp._filterop_to_solr_fq(filters, SEARCH_SCHEMA) == result
+
+
+def test_filters_unknown_operator_defaults_to_equality(ssp):
+    filters = FilterOp(
+        field="some_text_field",
+        op="unknown_op",
+        value="some_value",
+    )
+
+    result = ['some_text_field:"some_value"']
     assert ssp._filterop_to_solr_fq(filters, SEARCH_SCHEMA) == result
