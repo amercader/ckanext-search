@@ -3,7 +3,7 @@ from ckanext.search.logic.actions import search as search_action
 from ckanext.search.tests import factories
 
 pytestmark = pytest.mark.usefixtures(
-    "with_plugins", "search_providers", "clean_search_index"
+    "with_plugins", "clean_search_index"
 )
 
 

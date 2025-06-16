@@ -49,7 +49,7 @@ def index_for_filters_tests():
     )
 
 
-@pytest.mark.usefixtures("with_plugins", "search_providers", "index_for_filters_tests")
+@pytest.mark.usefixtures("with_plugins", "index_for_filters_tests")
 @pytest.mark.parametrize(
     "filters,names",
     [
