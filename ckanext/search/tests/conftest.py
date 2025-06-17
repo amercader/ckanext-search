@@ -20,6 +20,6 @@ def pytest_runtest_setup(item):
     if "search_providers" in item.fixturenames and item.config.option.search_provider:
         item.add_marker(
             pytest.mark.ckan_config(
-                "ckan.search.search_backend", item.config.option.search_provider
+                "ckan.search.search_provider", item.config.option.search_provider
             )
         )

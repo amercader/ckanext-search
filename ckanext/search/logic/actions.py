@@ -100,10 +100,10 @@ def search(context: Context, data_dict: DataDict):
         else:
             query_dict["filters"] = perm_labels_filter_op
 
-    search_backend = config["ckan.search.search_backend"]
+    search_provider = config["ckan.search.search_provider"]
     result = {}
     for plugin in PluginImplementations(ISearchProvider):
-        if plugin.id == search_backend:
+        if plugin.id == search_provider:
             result = plugin.search_query(**query_dict)
             break
 

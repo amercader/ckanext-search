@@ -2,7 +2,7 @@
 
 The goal of this specification is to provide a common syntax for defining filters
 that need to be applied to queries performed. It is not tied to a particular API
-endpoint or search backend, and it aims to be simple and extensible.
+endpoint or search provider, and it aims to be simple and extensible.
 
 ## Overview
 

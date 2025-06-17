@@ -384,7 +384,7 @@ class SolrSearchProvider(SingletonPlugin):
             # TODO:
             raise e
 
-    # Backend methods
+    # Provider methods
 
     def get_client(self) -> pysolr.Solr:
 
