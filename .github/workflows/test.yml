@@ -52,13 +52,13 @@ jobs:
 
         ckan -c test.ini db init
 
-        # Replace service URL in test.ini
+        # Replace service URL in provider ini files
         sed -i -e 's/localhost:8983/solr:8983/' test-solr.ini
         sed -i -e 's/localhost:9200/elasticsearch:9200/' test-elasticsearch.ini
 
-        ckan -c test.ini search init -p solr
+        ckan -c test-solr.ini search init -p solr
 
-        ckan -c test.ini search init -p elasticsearch
+        ckan -c test-elasticsearch.ini search init -p elasticsearch
 
     - name: Run search tests
       run: pytest --ckan-ini=test.ini --ignore=ckanext/search/tests/providers --cov=ckanext.search --disable-warnings ckanext/search/tests
