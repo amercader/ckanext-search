@@ -1,16 +1,16 @@
 import pytest
+
+from ckan.plugins.toolkit import config
 from ckanext.search.logic.actions import search as search_action
-from ckanext.search.index import clear_index
 from ckanext.search.tests import factories
 
-pytestmark = pytest.mark.usefixtures(
-    "with_plugins", "clean_search_index", "search_providers"
-)
-
-
-@pytest.fixture
-def clean_search_index():
-    clear_index()
+pytestmark = [
+    pytest.mark.skipif(
+        not config.get("ckan.search.search_backend"),
+        reason="No search provided defined",
+    ),
+    pytest.mark.usefixtures("with_plugins", "clean_search_index"),
+]
 
 
 def search(**kwargs):

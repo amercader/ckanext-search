@@ -1,3 +1,5 @@
+from ckan import model
+
 from ckan.tests import factories as core_factories
 
 from ckanext.search import index
@@ -23,6 +25,8 @@ class CKANIndexedOnlyFactory(core_factories.CKANFactory):
 
         if cls.indexer:
             cls.indexer(result)
+
+        model.Session.rollback()
 
         return result
 

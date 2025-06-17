@@ -60,7 +60,7 @@ def default_search_query_schema(
         ],
         "sort": [ignore_missing, json_list_or_string],
         # TODO: index value based ordering
-        "start": [ignore_missing, ignore_empty, natural_number_validator],
+        "start": [default(0), natural_number_validator],
         "filters": [
             ignore_missing,
             convert_to_json_if_string,
