@@ -113,7 +113,11 @@ class SpatialSearch(SingletonPlugin):
         }
 
     def before_index(
-        self, entity_type: str, id_: str, search_data: dict[str, str | list[str]]
+        self,
+        entity_type: str,
+        id_: str,
+        search_data: dict[str, str | list[str]],
+        search_schema: SearchSchema,
     ) -> None:
 
         if not entity_type == "dataset":

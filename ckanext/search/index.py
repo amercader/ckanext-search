@@ -16,7 +16,9 @@ from ckanext.search.schema import get_search_schema
 
 def _get_indexing_providers() -> list:
     indexing_providers = aslist(
-        config.get("ckan.search.indexing_provider", config["ckan.search.search_provider"])
+        config.get(
+            "ckan.search.indexing_provider", config["ckan.search.search_provider"]
+        )
     )
 
     return indexing_providers
@@ -32,7 +34,7 @@ def index_dataset(id_: str) -> None:
 
     context = {
         "ignore_auth": True,
-        "use_cache": False
+        "use_cache": False,
         # "for_indexing": True,  # TODO: implement support in core?
     }
 
@@ -104,6 +106,8 @@ def index_organization_dict(org_dict: ActionResult.OrganizationShow) -> None:
 
 def _index_record(entity_type: str, id_: str, search_data: dict) -> None:
 
+    search_schema = get_search_schema()
+
     for provider_plugin in PluginImplementations(ISearchProvider):
         if provider_plugin.id in _get_indexing_providers():
 
@@ -115,9 +119,13 @@ def _index_record(entity_type: str, id_: str, search_data: dict) -> None:
 
                 if provider_supported and entity_type_supported:
 
-                    feature_plugin.before_index(entity_type, id_, search_data)
+                    feature_plugin.before_index(
+                        entity_type, id_, search_data, search_schema
+                    )
 
-            provider_plugin.index_search_record(entity_type, id_, search_data)
+            provider_plugin.index_search_record(
+                entity_type, id_, search_data, search_schema
+            )
 
 
 def rebuild_dataset_index() -> None:
