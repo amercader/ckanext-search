@@ -1,5 +1,5 @@
+from typing import Optional
 from ckan.plugins import PluginImplementations
-from ckanext.search.index import _get_indexing_plugins
 from ckanext.search.interfaces import SearchSchema, ISearchProvider, ISearchFeature
 
 
@@ -77,17 +77,25 @@ DEFAULT_ORGANIZATION_SEARCH_SCHEMA: SearchSchema = {
 }
 
 
-def get_search_schema() -> SearchSchema:
+def get_search_schema(entity_type: Optional[str] = None) -> SearchSchema:
     search_schemas = [
         DEFAULT_DATASET_SEARCH_SCHEMA,
         DEFAULT_ORGANIZATION_SEARCH_SCHEMA,
     ]
 
-    return merge_search_schemas(search_schemas)
+    # TODO: return custom entities
+    # TODO: include fields from ISearchFeature plugins (per entity?)
+    if entity_type == "dataset":
+        return DEFAULT_DATASET_SEARCH_SCHEMA
+    elif entity_type == "organization":
+        return DEFAULT_ORGANIZATION_SEARCH_SCHEMA
+    else:
+        return merge_search_schemas(search_schemas)
 
 
 def init_schema(provider_id: str | None = None):
 
+    from ckanext.search.index import _get_indexing_plugins
     # TODO: combine different entities, schemas provided by extensions
 
     # TODO: validate with navl

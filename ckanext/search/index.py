@@ -1,14 +1,17 @@
 import json
 from collections.abc import Iterator
 
+from sqlalchemy.sql.expression import true
+
 from ckan import model
 from ckan.lib.navl.dictization_functions import MissingNullEncoder
 from ckan.lib.plugins import get_permission_labels
 from ckan.plugins import PluginImplementations, SingletonPlugin
 from ckan.plugins.toolkit import aslist, config, get_action
 from ckan.types import ActionResult
+
 from ckanext.search.interfaces import ISearchProvider, ISearchFeature
-from sqlalchemy.sql.expression import true
+from ckanext.search.schema import get_search_schema
 
 
 def _get_indexing_providers() -> list:
@@ -42,11 +45,15 @@ def index_dataset(id_: str) -> None:
 def index_dataset_dict(dataset_dict: ActionResult.PackageShow) -> None:
 
     # TODO: choose what to index here?
-    search_data = dict(dataset_dict)
-    search_data.pop("organization", None)
+    search_data = {}
 
-    # TODO: handle resource fields
-    search_data.pop("resources", None)
+    # For now let's remove everything not explicitly added to the search schema
+    schema = get_search_schema("dataset")
+    for key, value in dataset_dict.items():
+
+        # TODO: handle organization, resource fields, etc
+        if key in schema.get("fields", []):
+            search_data[key] = value
 
     search_data["tags"] = [t["name"] for t in search_data.get("tags", [])]
 
@@ -69,7 +76,7 @@ def index_organization(id_: str) -> None:
 
     context = {
         "ignore_auth": True,
-        "use_cache": False, # TODO: not really used in core outside datasets
+        "use_cache": False,  # TODO: not really used in core outside datasets
         # "for_indexing": True,  # TODO: implement support in core
     }
     org_dict = get_action("organization_show")(context, {"id": id_})
@@ -80,8 +87,14 @@ def index_organization(id_: str) -> None:
 def index_organization_dict(org_dict: ActionResult.OrganizationShow) -> None:
 
     # TODO: choose what to index here?
-    search_data = dict(org_dict)
-    search_data.pop("users", None)
+    search_data = {}
+
+    # For now let's remove everything not explicitly added to the search schema
+    schema = get_search_schema("organization")
+    for key, value in org_dict.items():
+        # TODO: handle users etc?
+        if key in schema.get("fields", []):
+            search_data[key] = value
 
     search_data["entity_type"] = "organization"
     search_data["validated_data_dict"] = json.dumps(search_data, cls=MissingNullEncoder)
