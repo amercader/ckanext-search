@@ -493,7 +493,7 @@ class SolrSearchProvider(SingletonPlugin):
         # Escape quotes
         return value.replace('"', '\\"')
 
-    # Backend methods
+    # Provider methods
 
     def get_client(self) -> pysolr.Solr:
 

@@ -3,7 +3,7 @@
 # ckanext-search
 
 
-Proof of Concept for pluggable search backends and improved search capabilities in CKAN
+Proof of Concept for pluggable search provider and improved search capabilities in CKAN
 
 Original discussion:
 
@@ -39,7 +39,7 @@ Config options (may change):
 
     ckan.plugins = search search_solr search_elasticsearch
 
-    ckan.search.search_backend = solr   # or elasticsearch
+    ckan.search.search_provider = solr   # or elasticsearch
 
     ckan.search.solr.url = http://127.0.0.1:8983/solr/ckan2
 

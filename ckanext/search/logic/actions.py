@@ -103,10 +103,11 @@ def search(context: Context, data_dict: DataDict):
 
     search_schema = get_search_schema()
     query_dict["search_schema"] = search_schema
-    search_backend = config["ckan.search.search_backend"]
+    search_provider = config["ckan.search.search_provider"]
+
     result = {}
     for plugin in PluginImplementations(ISearchProvider):
-        if plugin.id == search_backend:
+        if plugin.id == search_provider:
             result = plugin.search_query(**query_dict)
             break
     query_dict.pop("search_schema")

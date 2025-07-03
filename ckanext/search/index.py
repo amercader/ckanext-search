@@ -13,7 +13,7 @@ from sqlalchemy.sql.expression import true
 
 def _get_indexing_providers() -> list:
     indexing_providers = aslist(
-        config.get("ckan.search.indexing_backend", config["ckan.search.search_backend"])
+        config.get("ckan.search.indexing_provider", config["ckan.search.search_provider"])
     )
 
     return indexing_providers

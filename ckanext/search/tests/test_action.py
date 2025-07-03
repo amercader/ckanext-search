@@ -12,7 +12,7 @@ from ckanext.search.filters import FilterOp
 
 pytestmark = [
     pytest.mark.usefixtures("with_plugins"),
-    pytest.mark.ckan_config("ckan.search.search_backend", "test-provider"),
+    pytest.mark.ckan_config("ckan.search.search_provider", "test-provider"),
 ]
 
 
