@@ -45,7 +45,7 @@ DEFAULT_DATASET_SEARCH_SCHEMA: SearchSchema = {
         "version": {"type": "text"},
         "tags": {"type": "string", "multiple": True},
         "groups": {"type": "string", "multiple": True},
-        "organization": {"type": "string"},
+        "owner_org": {"type": "string"},
         "private": {"type": "bool"},
         "metadata_created": {"type": "date"},
         "metadata_modified": {"type": "date"},
