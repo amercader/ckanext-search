@@ -60,7 +60,11 @@ class ISearchProvider(Interface):
         schema containing all field names, types and repeating state"""
 
     def index_search_record(
-        self, entity_type: str, id_: str, search_data: dict[str, str | list[str]]
+        self,
+        entity_type: str,
+        id_: str,
+        search_data: dict[str, str | list[str]],
+        search_schema: SearchSchema,
     ) -> None:
         "create or update search data record in index"
 
@@ -104,7 +108,11 @@ class ISearchFeature(Interface):
         pass
 
     def before_index(
-        self, entity_type: str, id_: str, search_data: dict[str, str | list[str]]
+        self,
+        entity_type: str,
+        id_: str,
+        search_data: dict[str, str | list[str]],
+        search_schema: SearchSchema,
     ) -> None:
 
         pass

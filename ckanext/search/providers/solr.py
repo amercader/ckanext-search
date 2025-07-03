@@ -252,7 +252,11 @@ class SolrSearchProvider(SingletonPlugin):
 
     # TODO: do we need id_ or we just check the search_data dict?
     def index_search_record(
-        self, entity_type: str, id_: str, search_data: dict[str, str | list[str]]
+        self,
+        entity_type: str,
+        id_: str,
+        search_data: dict[str, str | list[str]],
+        search_schema: SearchSchema,
     ) -> None:
 
         client = self.get_client()
