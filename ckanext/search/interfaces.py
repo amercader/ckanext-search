@@ -40,6 +40,7 @@ class ISearchProvider(Interface):
             str, Any
         ],  # custom parameters this provider may process or ignore
         # TODO: config
+        search_schema: SearchSchema,
         lang: str,  # for text query language stemming e.g. 'de'
         return_ids: bool = False,  # True: return records as ids (may increase maximum record limit)
         return_entity_types: bool = False,  # True: wrap records with {'entity_type': et, 'data': record} objects

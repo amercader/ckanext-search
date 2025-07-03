@@ -8,6 +8,7 @@ from ckan.plugins.toolkit import config
 from elasticsearch import Elasticsearch
 
 from ckanext.search.interfaces import ISearchProvider, SearchResults, SearchSchema
+from ckanext.search.filters import FilterOp
 
 log = logging.getLogger(__name__)
 
@@ -95,10 +96,11 @@ class ElasticSearchProvider(SingletonPlugin):
     def search_query(
         self,
         q: str,
-        filters: dict[str, str | list[str]],
+        filters: FilterOp,
         sort: list[list[str]],
         additional_params: dict[str, Any],
         lang: str,
+        search_schema: SearchSchema,
         return_ids: bool = False,
         return_entity_types: bool = False,
         return_facets: bool = False,
@@ -106,15 +108,32 @@ class ElasticSearchProvider(SingletonPlugin):
         start: int = 0,
     ) -> Optional[SearchResults]:
 
-        # Transform generic search params to Elastic Search query params
+        es_params = {"size": limit, "from": start}
 
-        # TODO: Use ES query DSL
-        es_params = {"q": q}
+        # Translate q param to ES Query DSL
+        if q and q in ("*", "*:*"):
+            q_dsl = {"match_all": {}}
+        elif q:
+            q_dsl = {"simple_query_string": {"query": q}}
+        else:
+            q_dsl = None
+
+        # Transform generic search params to ES Query DSL
+        filters_dsl = self._filterop_to_es_query(filters, search_schema)
+
+        if q_dsl and filters_dsl:
+            es_params["query"] = {"bool": {"must": [q_dsl, filters_dsl]}}
+        elif q_dsl:
+            es_params["query"] = q_dsl
+        elif filters_dsl:
+            es_params["query"] = filters_dsl
+        else:
+            es_params["query"] = {"match_all": {}}
 
         client = self.get_client()
 
         # TODO: error handling
-        es_response = client.search(**es_params)
+        es_response = client.search(index=self._index_name, **es_params)
 
         items = []
         for doc in es_response["hits"]["hits"]:
@@ -124,13 +143,89 @@ class ElasticSearchProvider(SingletonPlugin):
 
         return {"count": len(items), "results": items, "facets": {}}
 
+    def _filterop_to_es_query(
+        self, filter_op: FilterOp, search_schema: SearchSchema
+    ) -> Optional[dict]:
+        """
+        Convert a FilterOp object to ElasticSearch DSL query.
+        Returns a dict representing the ES query DSL.
+        """
+        if not filter_op:
+            return None
+
+        if not isinstance(filter_op, FilterOp):
+            raise ValueError("A FilterOp object is needed")
+
+        if filter_op.op in ["$and", "$or"]:
+            if not isinstance(filter_op.value, list):
+                return None
+
+            sub_queries = []
+            for sub_op in filter_op.value:
+                if isinstance(sub_op, FilterOp):
+                    sub_query = self._filterop_to_es_query(sub_op, search_schema)
+                    if sub_query:
+                        sub_queries.append(sub_query)
+
+            if not sub_queries:
+                return None
+
+            if len(sub_queries) == 1:
+                return sub_queries[0]
+
+            if filter_op.op == "$and":
+                return {"bool": {"must": sub_queries}}
+            else:  # $or
+                return {"bool": {"should": sub_queries, "minimum_should_match": 1}}
+
+        else:
+            # Handle field operators
+            field_name = filter_op.field
+            op = filter_op.op
+            value = filter_op.value
+
+            if not field_name:
+                return None
+
+            field_type = self._get_field_type(field_name, search_schema)
+
+            if op == "eq":
+                return {"term": {field_name: value}}
+            elif op == "gt":
+                return {"range": {field_name: {"gt": value}}}
+            elif op == "gte":
+                return {"range": {field_name: {"gte": value}}}
+            elif op == "lt":
+                return {"range": {field_name: {"lt": value}}}
+            elif op == "lte":
+                return {"range": {field_name: {"lte": value}}}
+            elif op == "in":
+                if isinstance(value, list) and value:
+                    return {"terms": {field_name: value}}
+                else:
+                    return None
+            else:
+                # Unknown operator, assume equality for now
+                return {"term": {field_name: value}}
+
+    def _get_field_type(
+        self, field_name: str, search_schema: SearchSchema
+    ) -> Optional[str]:
+        """Get field type from search schema."""
+        if field_info := search_schema.get("fields", {}).get(field_name):
+            return field_info.get("type")
+        return None
+
     def clear_index(self) -> None:
 
         client = self.get_client()
         # TODO: review bulk, versions, slices, etc
         # TODO: wait for completion
         client.delete_by_query(
-            q="*:*", index=self._index_name, wait_for_completion=True
+            index=self._index_name,
+            body={"query": {"match_all": {}}},
+            conflicts="proceed",
+            wait_for_completion=True,
         )
         log.info("Cleared all documents in the search index")
 

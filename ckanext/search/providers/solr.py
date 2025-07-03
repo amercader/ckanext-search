@@ -11,6 +11,7 @@ from ckan.plugins import SingletonPlugin, implements
 from ckan.plugins.toolkit import config, get_validator
 from ckan.types import Schema
 from ckanext.search.interfaces import ISearchProvider, SearchResults, SearchSchema
+from ckanext.search.filters import FilterOp
 
 log = logging.getLogger(__name__)
 
@@ -310,10 +311,11 @@ class SolrSearchProvider(SingletonPlugin):
     def search_query(
         self,
         q: str,
-        filters: dict[str, str | list[str]],
+        filters: FilterOp,
         sort: list[list[str]],
         additional_params: dict[str, Any],
         lang: str,
+        search_schema: SearchSchema,
         return_ids: bool = False,
         return_entity_types: bool = False,
         return_facets: bool = False,
@@ -338,10 +340,12 @@ class SolrSearchProvider(SingletonPlugin):
             "fq": fq,
         }
 
+        solr_params["fq"] = self._filterop_to_solr_fq(filters, search_schema)
+
         # TODO: perm labels for arbitrary entities
 
-        # TODO: Migrate to FilterOp
-        #if "permission_labels" in filters:
+        # TODO: handle perm labels
+        # if "permission_labels" in filters:
         #    perms_conditions = (
         #        "permission_labels:("
         #        + " OR ".join(solr_literal(p) for p in filters["permission_labels"])
@@ -383,6 +387,111 @@ class SolrSearchProvider(SingletonPlugin):
         except pysolr.SolrError as e:
             # TODO:
             raise e
+
+    def _filterop_to_solr_fq(
+        self, filter_op: FilterOp, search_schema: SearchSchema
+    ) -> list[str]:
+        """
+        Convert a FilterOp object to Solr filter query strings.
+        Returns a list of filter query strings.
+        """
+        if not filter_op:
+            return []
+
+        if not isinstance(filter_op, FilterOp):
+            raise ValueError("A FilterOp object is needed")
+
+        if filter_op.op in ["$and", "$or"]:
+
+            if not isinstance(filter_op.value, list):
+                return []
+
+            sub_filters = []
+            for sub_op in filter_op.value:
+                if isinstance(sub_op, FilterOp):
+                    sub_filters.extend(self._filterop_to_solr_fq(sub_op, search_schema))
+
+            if not sub_filters:
+                return []
+
+            if len(sub_filters) == 1:
+                return sub_filters
+
+            operator = "AND" if filter_op.op == "$and" else "OR"
+            return [f" {operator} ".join(f"({f})" for f in sub_filters)]
+
+        else:
+            # Handle field operators
+            field_name = filter_op.field
+            op = filter_op.op
+            value = filter_op.value
+
+            if not field_name:
+                return []
+
+            field_type = self._get_field_type(field_name, search_schema)
+
+            op_templates = {
+                "eq": "{field_name}:{value}",
+                "gt": "{field_name}:{{{value} TO *}}",
+                "gte": "{field_name}:[{value} TO *]",
+                "lt": "{field_name}:{{* TO {value}}}",
+                "lte": "{field_name}:[* TO {value}]",
+            }
+
+            if op in op_templates:
+                return [
+                    op_templates[op].format(
+                        field_name=field_name,
+                        value=self._process_value(
+                            value, field_type, range_query=op != "eq"
+                        ),
+                    )
+                ]
+            elif op == "in":
+                if isinstance(value, list) and value:
+                    return [
+                        " OR ".join(
+                            f"{field_name}:{self._process_value(v, field_type)}"
+                            for v in value
+                        )
+                    ]
+                else:
+                    return []
+            else:
+                # Unknown operator, assume equality for now
+                # TODO: how to handle custom ones?
+                return [f"{field_name}:{self._process_value(value, field_type)}"]
+
+    def _process_value(
+        self, value: Any, field_type: Optional[str] = None, range_query: bool = False
+    ) -> str:
+        value = self._escape_value(str(value))
+        if field_type:
+            # TODO: review more types need to be quoted
+            if field_type in ("text", "string"):
+                value = self._quote_value(value)
+            elif field_type == "date" and not range_query:
+                value = self._quote_value(value)
+        else:
+            value = self._quote_value(value)
+
+        return value
+
+    def _get_field_type(
+        self, field_name: str, search_schema: SearchSchema
+    ) -> Optional[str]:
+
+        if field_info := search_schema.get("fields", {}).get(field_name):
+            return field_info.get("type")
+
+    def _quote_value(self, value: str) -> str:
+        # Wrap value in double quotes
+        return f'"{value}"'
+
+    def _escape_value(self, value: str) -> str:
+        # Escape quotes
+        return value.replace('"', '\\"')
 
     # Provider methods
 

@@ -12,6 +12,7 @@ from ckan.plugins.toolkit import (
 )
 from ckan.types import Context, DataDict
 from ckanext.search.interfaces import ISearchProvider, ISearchFeature
+from ckanext.search.schema import get_search_schema
 from ckanext.search.logic.schema import default_search_query_schema
 from ckanext.search.filters import FilterOp
 
@@ -100,13 +101,18 @@ def search(context: Context, data_dict: DataDict):
         else:
             query_dict["filters"] = perm_labels_filter_op
 
+    search_schema = get_search_schema()
+    query_dict["search_schema"] = search_schema
     search_provider = config["ckan.search.search_provider"]
+
     result = {}
     for plugin in PluginImplementations(ISearchProvider):
         if plugin.id == search_provider:
             result = plugin.search_query(**query_dict)
             break
+    query_dict.pop("search_schema")
 
+    # TODO: pass search_schema here
     # Allow search extensions to modify the query results
     for plugin in PluginImplementations(ISearchFeature):
         plugin.after_query(result, query_dict)
