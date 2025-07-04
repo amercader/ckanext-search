@@ -1,6 +1,6 @@
 from typing import Any
 
-from ckan.plugins.toolkit import validator_args
+from ckan.plugins.toolkit import validator_args, navl_validate, _
 
 from ckan.types import (
     Schema,
@@ -36,6 +36,32 @@ def query_filters_validator(search_schema) -> Validator:
     return callable
 
 
+def dict_subschema(schema) -> Validator:
+
+    def callable(
+        key: FlattenKey,
+        data: FlattenDataDict,
+        errors: FlattenErrorDict,
+        context: Context,
+    ) -> Any:
+
+        field_name = key[0]
+        sub_data = data[key]
+
+        validated_sub_data, sub_errors = navl_validate(sub_data, schema, context)
+
+        if sub_errors:
+            for error_field, messages in sub_errors.items():
+                for message in messages:
+                    message = _(message)
+                    errors[key].append(f"{field_name}.{error_field}: {message}")
+
+        else:
+            data[key] = validated_sub_data
+
+    return callable
+
+
 @validator_args
 def default_search_query_schema(
     ignore_missing: Validator,
@@ -66,5 +92,27 @@ def default_search_query_schema(
             convert_to_json_if_string,
             query_filters_validator(get_search_schema()),
         ],
+        "facets": [
+            ignore_missing,
+            ignore_empty,
+            convert_to_json_if_string,
+            dict_subschema(default_facets_query_schema()),
+        ],
         "lang": [ignore_missing],
+    }
+
+
+@validator_args
+def default_facets_query_schema(
+    not_empty: Validator,
+    convert_to_list_if_string: Validator,
+    list_of_strings: Validator,
+    ignore_missing: Validator,
+    natural_number_validator: Validator,
+) -> Schema:
+
+    return {
+        "field": [not_empty, convert_to_list_if_string, list_of_strings],
+        "mincount": [ignore_missing, natural_number_validator],
+        "limit": [ignore_missing, natural_number_validator],
     }
