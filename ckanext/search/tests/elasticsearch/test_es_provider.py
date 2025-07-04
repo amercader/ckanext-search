@@ -9,7 +9,7 @@ from ckanext.search.providers.es import ElasticSearchProvider
 
 
 pytestmark = pytest.mark.skipif(
-    config.get("ckan.search.search_backend") != "elasticsearch",
+    config.get("ckan.search.search_provider") != "elasticsearch",
     reason="These tests are ElasticSearch specific",
 )
 

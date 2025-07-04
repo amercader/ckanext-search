@@ -9,7 +9,7 @@ from ckanext.search.providers.solr import SolrSearchProvider
 
 
 pytestmark = pytest.mark.skipif(
-    config.get("ckan.search.search_backend") != "solr",
+    config.get("ckan.search.search_provider") != "solr",
     reason="These tests are Solr specific",
 )
 

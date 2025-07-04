@@ -6,7 +6,7 @@ from ckanext.search.tests import factories
 
 pytestmark = [
     pytest.mark.skipif(
-        not config.get("ckan.search.search_backend"),
+        not config.get("ckan.search.search_provider"),
         reason="No search provided defined",
     ),
     pytest.mark.usefixtures("with_plugins", "clean_search_index"),
