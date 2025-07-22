@@ -1,7 +1,11 @@
-[![Tests](https://github.com//ckanext-search/workflows/Tests/badge.svg?branch=main)](https://github.com//ckanext-search/actions)
+[![Tests](https://github.com/ckan/ckanext-search/workflows/Tests/badge.svg?branch=main)](https://github.com/ckan/ckanext-search/actions)
 
 # ckanext-search
 
+
+| :warning: *Warning* :warning: |
+| --- |
+| This is experimental work not meant for production use |
 
 Proof of Concept for pluggable search provider and improved search capabilities in CKAN
 
@@ -62,7 +66,7 @@ Note: these are meant in the context of the proof of concept, not as final imple
 - [x] Initialize: setup ES
 - [ ] Choose what to index
 - [ ] Language (stemming, etc)
-- [x] `search` API params, validation
+- [ ] `search` API params, validation
 - [ ] `search` API output
 - [ ] Return data_dicts vs ids or fl
 - [x] Support for `_before/after_index/search` plugin hooks
