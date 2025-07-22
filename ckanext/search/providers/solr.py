@@ -379,7 +379,7 @@ class SolrSearchProvider(SingletonPlugin):
             # TODO allow to choose validated/not validated? i.e use_default_schema
             items.append(json.loads(doc["validated_data_dict"]))
 
-        return {"count": len(items), "results": items, "facets": {}}
+        return {"count": solr_response.hits, "results": items, "facets": {}}
 
     def clear_index(self) -> None:
 
