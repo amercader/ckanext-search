@@ -121,7 +121,7 @@ def default_facets_query_schema(
 ) -> Schema:
 
     return {
-        "field": [not_empty, convert_to_list_if_string, list_of_strings],
+        "fields": [not_empty, convert_to_list_if_string, list_of_strings],
         "mincount": [ignore_missing, natural_number_validator],
         "limit": [ignore_missing, natural_number_validator],
     }

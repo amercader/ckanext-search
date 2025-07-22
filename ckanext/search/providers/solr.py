@@ -403,7 +403,7 @@ class SolrSearchProvider(SingletonPlugin):
         if (
             not facets
             or not isinstance(facets, dict)
-            or not facets.get("field")
+            or not facets.get("fields")
             or not isinstance(facets["fields"], list)
             or not len(facets["fields"])
         ):

@@ -1,6 +1,6 @@
 import pytest
 
-from ckan.plugins.toolkit import config
+from ckan.plugins.toolkit import config, ValidationError
 from ckanext.search.index import clear_index
 from ckanext.search.logic.actions import search as search_action
 from ckanext.search.tests import factories
@@ -59,8 +59,9 @@ def index_for_facet_tests():
 @pytest.mark.usefixtures("with_plugins", "index_for_facet_tests")
 def test_facets_basic():
 
-    facets = {
-        "field": {"nope": "mmp"}
-    }
+    # TODO
+
+    facets = {"fields": ["tags", "version"]}
 
     result = search(facets=facets)
+
