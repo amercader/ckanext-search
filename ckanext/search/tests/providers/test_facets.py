@@ -56,10 +56,11 @@ def index_for_facet_tests():
     )
 
 
+@pytest.mark.usefixtures("with_plugins", "index_for_facet_tests")
 def test_facets_basic():
 
     facets = {
-        "field": "tags"
+        "field": {"nope": "mmp"}
     }
 
     result = search(facets=facets)

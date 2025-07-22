@@ -35,6 +35,7 @@ class ISearchProvider(Interface):
         #   FilterOp(field="entity_type", op="eq", value="package")
         #   ])
         filters: FilterOp,
+        facets: dict[str, Any],
         sort: list[list[str]],  # e.g. [['title'], ['metadata_modified', 'desc']]
         additional_params: dict[
             str, Any

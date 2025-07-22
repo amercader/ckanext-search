@@ -62,6 +62,14 @@ def dict_subschema(schema) -> Validator:
     return callable
 
 
+def no_unknown_fields_in_dict_subschema(
+    key: FlattenKey, data: FlattenDataDict, errors: FlattenErrorDict, context: Context
+) -> Any:
+
+    if data[key].get("__extras"):
+        errors[key].append(_(f'Unknown parameters: {data[key]["__extras"]}'))
+
+
 @validator_args
 def default_search_query_schema(
     ignore_missing: Validator,
@@ -97,6 +105,7 @@ def default_search_query_schema(
             ignore_empty,
             convert_to_json_if_string,
             dict_subschema(default_facets_query_schema()),
+            no_unknown_fields_in_dict_subschema,
         ],
         "lang": [ignore_missing],
     }

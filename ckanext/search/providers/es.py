@@ -101,6 +101,7 @@ class ElasticSearchProvider(SingletonPlugin):
         self,
         q: str,
         filters: FilterOp,
+        facets: dict[str, Any],
         sort: list[list[str]],
         additional_params: dict[str, Any],
         lang: str,

@@ -2,7 +2,7 @@ import hashlib
 import json
 import logging
 import socket
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse, urlunparse
 
 import pysolr
@@ -295,6 +295,8 @@ class SolrSearchProvider(SingletonPlugin):
         unicode_safe = get_validator("unicode_safe")
         convert_to_list_if_string = get_validator("convert_to_list_if_string")
 
+        # TODO facets
+
         search_query_schema = {
             "df": [ignore_missing, unicode_safe],
             "fl": [ignore_missing, unicode_safe],
@@ -316,6 +318,7 @@ class SolrSearchProvider(SingletonPlugin):
         self,
         q: str,
         filters: FilterOp,
+        facets: dict[str, Any],
         sort: list[list[str]],
         additional_params: dict[str, Any],
         lang: str,
@@ -345,6 +348,9 @@ class SolrSearchProvider(SingletonPlugin):
         }
 
         solr_params["fq"] = self._filterop_to_solr_fq(filters, search_schema)
+
+        if facets:
+            solr_params.update(self._parse_facets(facets))
 
         # TODO: perm labels for arbitrary entities
 
@@ -391,6 +397,23 @@ class SolrSearchProvider(SingletonPlugin):
         except pysolr.SolrError as e:
             # TODO:
             raise e
+
+    def _parse_facets(self, facets: dict) -> dict[str, str]:
+
+        if (
+            not facets
+            or not isinstance(facets, dict)
+            or not facets.get("field")
+            or not isinstance(facets["fields"], list)
+            or not len(facets["fields"])
+        ):
+            return {}
+
+        facet_params = {
+            "facet": "true",
+            "facet.field": facets["fields"],
+        }
+        return facet_params
 
     def _filterop_to_solr_fq(
         self, filter_op: FilterOp, search_schema: SearchSchema
