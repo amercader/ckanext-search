@@ -1,11 +1,8 @@
 import pytest
-from unittest import mock
 
 import ckan.plugins as plugins
 from ckan.plugins import toolkit
 from ckan.tests import helpers
-
-from ckanext.search.interfaces import ISearchFeature, ISearchProvider
 
 from ckanext.search.filters import FilterOp
 
@@ -14,59 +11,6 @@ pytestmark = [
     pytest.mark.usefixtures("with_plugins"),
     pytest.mark.ckan_config("ckan.search.search_provider", "test-provider"),
 ]
-
-
-class MockSearchFeature:
-
-    def before_query(self, query_dict):
-        pass
-
-    def after_query(self, query_results, query_dict):
-        pass
-
-    def search_query_schema(self):
-        return {
-            "custom_param": [],
-        }
-
-
-class MockSearchProvider:
-
-    id = "test-provider"
-
-    def search_query_schema(self):
-        return {
-            "qf": [],
-            "df": [],
-        }
-
-    search_query = mock.MagicMock()
-
-
-@pytest.fixture
-def mock_search_plugins():
-    """Fixture that mocks plugin implementations for search tests."""
-    mock_provider = MockSearchProvider()
-    mock_feature = MockSearchFeature()
-
-    with mock.patch(
-        "ckanext.search.logic.actions.PluginImplementations"
-    ) as mock_plugin_implementations:
-
-        def choose(interface):
-            if interface == ISearchProvider:
-                return [mock_provider]
-            elif interface == ISearchFeature:
-                return [mock_feature]
-            return []
-
-        mock_plugin_implementations.side_effect = choose
-
-        # Return the mocks so tests can access them for assertions
-        yield {
-            "provider": mock_provider,
-            "feature": mock_feature,
-        }
 
 
 def test_standard_params(mock_search_plugins):
